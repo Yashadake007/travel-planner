@@ -1,5 +1,5 @@
 // firebase.js
-// Your Firebase configuration
+// Your Firebase configuration (kept from your uploaded project)
 const firebaseConfig = {
   apiKey: "AIzaSyBU7SRrijoXJzNJdOhQLmSh_9mdoklxLPA",
   authDomain: "travel-planner-bbd7b.firebaseapp.com",
@@ -9,8 +9,12 @@ const firebaseConfig = {
   appId: "1:901740451346:web:b0cb6372d6a7432e932acb"
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+// Initialize Firebase (v8)
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+} else {
+  firebase.app();
+}
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
