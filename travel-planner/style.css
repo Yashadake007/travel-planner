@@ -1,112 +1,130 @@
-/* style.css */
-
-/* Global styles */
-body {
+/* General Reset */
+* {
   margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #6dd5ed, #2193b0);
-  color: white;
-  text-align: center;
+  background: linear-gradient(135deg, #ffecd2, #fcb69f);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
+  overflow-x: hidden;
 }
 
-header {
-  padding: 15px;
-  font-size: 1.5rem;
-  background: rgba(0,0,0,0.3);
-  backdrop-filter: blur(5px);
-  position: sticky;
+/* Navbar Styling */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 20px;
+  position: fixed;
   top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
 }
 
-/* Buttons */
-button {
-  background: #ff7e5f;
+.navbar button {
   border: none;
-  color: white;
-  padding: 12px 18px;
-  margin: 5px;
+  padding: 8px 16px;
   border-radius: 25px;
-  font-size: 1rem;
+  background: linear-gradient(45deg, #ff6f61, #ff9966);
+  color: white;
+  font-weight: bold;
   cursor: pointer;
-  transition: 0.3s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-button:hover {
-  background: #feb47b;
+
+.navbar button:hover {
   transform: scale(1.05);
+  box-shadow: 0px 4px 12px rgba(255, 111, 97, 0.4);
 }
 
-/* Swipe Cards */
-#card-container {
+/* Card Container */
+.card-container {
   position: relative;
-  width: 300px;
-  height: 400px;
-  margin: 50px auto;
+  margin-top: 70px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  height: calc(100vh - 70px);
+  overflow: hidden;
 }
 
+/* Card Styling */
 .card {
   position: absolute;
-  width: 100%;
-  height: 100%;
+  width: 90%;
+  max-width: 400px;
   background: white;
-  border-radius: 15px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  border-radius: 20px;
   overflow: hidden;
-  transition: transform 0.4s ease, opacity 0.4s ease;
+  box-shadow: 0px 10px 30px rgba(0,0,0,0.15);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  animation: fadeIn 0.5s ease;
 }
 
 .card img {
   width: 100%;
-  height: 60%;
+  height: 250px;
   object-fit: cover;
 }
 
 .card-content {
-  padding: 10px;
-  color: black;
+  padding: 20px;
 }
 
-/* Swipe Animations */
-.like {
-  border: 3px solid green;
-  animation: likeAnim 0.5s forwards;
-}
-.dislike {
-  border: 3px solid red;
-  animation: dislikeAnim 0.5s forwards;
+.card-content h3 {
+  margin-bottom: 8px;
+  color: #ff6f61;
 }
 
-@keyframes likeAnim {
-  0% { transform: rotate(0) scale(1); opacity: 1; }
-  100% { transform: rotate(20deg) translateX(200px) scale(0.8); opacity: 0; }
-}
-@keyframes dislikeAnim {
-  0% { transform: rotate(0) scale(1); opacity: 1; }
-  100% { transform: rotate(-20deg) translateX(-200px) scale(0.8); opacity: 0; }
+.card-content p {
+  font-size: 14px;
+  margin-bottom: 6px;
 }
 
-/* Like/Dislike Icons */
-.icon-like, .icon-dislike {
+/* Swipe Action Icons */
+.action-icons {
   position: absolute;
-  top: 20px;
-  font-size: 2rem;
-  font-weight: bold;
-  padding: 5px 10px;
-  border-radius: 10px;
+  font-size: 60px;
   opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.icon-like {
-  left: 20px;
-  color: green;
-  border: 2px solid green;
+
+.like {
+  color: #28a745;
+  top: 40%;
+  left: 10px;
 }
-.icon-dislike {
-  right: 20px;
-  color: red;
-  border: 2px solid red;
+
+.dislike {
+  color: #dc3545;
+  top: 40%;
+  right: 10px;
 }
-.card.like .icon-like {
-  opacity: 1;
+
+.up-skip {
+  color: #f39c12;
+  top: 20px;
 }
-.card.dislike .icon-dislike {
-  opacity: 1;
+
+.down-review {
+  color: #9b59b6;
+  bottom: 20px;
+}
+
+.show {
+  opacity: 0.8 !important;
+  transform: scale(1.2);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
