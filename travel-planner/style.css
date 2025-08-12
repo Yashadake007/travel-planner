@@ -1,86 +1,112 @@
 /* style.css */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
 
+/* Global styles */
 body {
+  margin: 0;
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #ffecd2, #fcb69f);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100vh;
+  background: linear-gradient(135deg, #6dd5ed, #2193b0);
+  color: white;
+  text-align: center;
 }
 
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  padding: 10px 20px;
-  background: rgba(255,255,255,0.3);
-  backdrop-filter: blur(10px);
-  position: fixed;
+header {
+  padding: 15px;
+  font-size: 1.5rem;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(5px);
+  position: sticky;
   top: 0;
 }
 
-.navbar button {
+/* Buttons */
+button {
+  background: #ff7e5f;
   border: none;
-  padding: 8px 16px;
-  border-radius: 25px;
-  background: linear-gradient(45deg, #ff6f61, #ff9966);
   color: white;
-  font-weight: bold;
+  padding: 12px 18px;
+  margin: 5px;
+  border-radius: 25px;
+  font-size: 1rem;
   cursor: pointer;
+  transition: 0.3s;
+}
+button:hover {
+  background: #feb47b;
+  transform: scale(1.05);
 }
 
-.card-container {
+/* Swipe Cards */
+#card-container {
   position: relative;
-  margin-top: 70px;
-  width: 100%;
-  display: flex;
-  justify-content: center;
+  width: 300px;
+  height: 400px;
+  margin: 50px auto;
 }
 
 .card {
   position: absolute;
-  width: 90%;
-  max-width: 400px;
+  width: 100%;
+  height: 100%;
   background: white;
-  border-radius: 20px;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
   overflow: hidden;
-  box-shadow: 0px 10px 30px rgba(0,0,0,0.15);
-  animation: fadeIn 0.5s ease;
+  transition: transform 0.4s ease, opacity 0.4s ease;
 }
 
 .card img {
   width: 100%;
-  height: 250px;
+  height: 60%;
   object-fit: cover;
 }
 
 .card-content {
-  padding: 20px;
+  padding: 10px;
+  color: black;
 }
 
-.card-content h3 {
-  margin-bottom: 8px;
-  color: #ff6f61;
+/* Swipe Animations */
+.like {
+  border: 3px solid green;
+  animation: likeAnim 0.5s forwards;
+}
+.dislike {
+  border: 3px solid red;
+  animation: dislikeAnim 0.5s forwards;
 }
 
-.action-icons {
+@keyframes likeAnim {
+  0% { transform: rotate(0) scale(1); opacity: 1; }
+  100% { transform: rotate(20deg) translateX(200px) scale(0.8); opacity: 0; }
+}
+@keyframes dislikeAnim {
+  0% { transform: rotate(0) scale(1); opacity: 1; }
+  100% { transform: rotate(-20deg) translateX(-200px) scale(0.8); opacity: 0; }
+}
+
+/* Like/Dislike Icons */
+.icon-like, .icon-dislike {
   position: absolute;
-  font-size: 60px;
+  top: 20px;
+  font-size: 2rem;
+  font-weight: bold;
+  padding: 5px 10px;
+  border-radius: 10px;
   opacity: 0;
 }
-
-.like { color: #28a745; top: 40%; left: 10px; }
-.dislike { color: #dc3545; top: 40%; right: 10px; }
-
-.show { opacity: 0.8; transform: scale(1.2); }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+.icon-like {
+  left: 20px;
+  color: green;
+  border: 2px solid green;
+}
+.icon-dislike {
+  right: 20px;
+  color: red;
+  border: 2px solid red;
+}
+.card.like .icon-like {
+  opacity: 1;
+}
+.card.dislike .icon-dislike {
+  opacity: 1;
 }
