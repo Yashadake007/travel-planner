@@ -1,6 +1,5 @@
-/* style.css — unified, modern, responsive */
+/* style.css — final polished styles (same as earlier, kept consistent) */
 
-/* Theme */
 :root{
   --bg-1: #071024;
   --bg-2: #0f1724;
@@ -8,10 +7,8 @@
   --card-bg: linear-gradient(180deg,#fff,#f5f7fb);
   --glass: rgba(255,255,255,0.04);
   --accent: #ff3b6b;
-  --success: #10b981;
 }
 
-/* Base */
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -21,26 +18,25 @@ body{
   color:#e6eef8;
 }
 
-/* Header */
+/* header */
 .site-header{
   display:flex;
   justify-content:space-between;
   align-items:center;
   padding:14px 20px;
   border-bottom:1px solid rgba(255,255,255,0.03);
-  backdrop-filter: blur(4px);
 }
-.brand{font-weight:700;letter-spacing:0.6px}
-.header-actions .ghost-btn{
+.brand{font-weight:700}
+.ghost-btn{
   background:transparent;border:1px solid rgba(255,255,255,0.04);
   color:var(--muted);padding:8px 10px;border-radius:8px;margin-left:8px;cursor:pointer;
 }
 
-/* Layout */
+/* layout */
 .main{display:flex;gap:18px;padding:22px;align-items:flex-start;min-height:calc(100vh - 64px)}
-.cards-area{flex:1;display:flex;justify-content:center;align-items:center;min-height:60vh;position:relative}
+.cards-area{flex:1;display:flex;justify-content:center;align-items:center;position:relative;min-height:60vh}
 
-/* Card stack */
+/* stack */
 .card-stack{width:360px;max-width:86vw;height:560px;position:relative;perspective:1400px}
 .trip-card{
   position:absolute;width:100%;height:100%;border-radius:16px;overflow:hidden;
@@ -53,30 +49,30 @@ body{
 .trip-title{font-size:18px;color:#071024;font-weight:700}
 .trip-sub{color:var(--muted);font-size:13px}
 
-/* overlay icons */
+/* overlay */
 .swipe-overlay{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);pointer-events:none;z-index:9999}
 .overlay-icon{display:inline-block;font-size:64px;padding:18px;border-radius:999px;background:rgba(255,255,255,0.05);backdrop-filter:blur(4px);transition:transform 180ms ease,opacity 180ms ease;opacity:0}
 .overlay-icon.show{opacity:1;transform:scale(1.06);}
 
-/* Right panel */
+/* right panel */
 .right-panel{width:88px;display:flex;flex-direction:column;gap:12px;align-items:center}
 .side-btn{width:56px;height:56px;border-radius:14px;border:0;background:var(--glass);color:var(--muted);font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px rgba(2,6,23,0.6);transition:transform 140ms ease}
 .side-btn:hover{transform:translateY(-4px);color:#fff;background:rgba(255,255,255,0.04)}
 .side-btn.logout{background:linear-gradient(90deg,#ff7a7a,#ff3b6b);color:white}
 
-/* Modal */
+/* modal */
 .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:9998;backdrop-filter:blur(3px)}
 .modal.hidden{display:none}
 .modal-content{width:92%;max-width:720px;background:linear-gradient(180deg,#0b1220,#071026);border-radius:12px;padding:18px;box-shadow:0 20px 50px rgba(1,6,23,0.6);color:#e6eef8}
 .modal-close{float:right;border:0;background:transparent;color:var(--muted);font-size:18px;cursor:pointer}
 .modal-body{margin-top:8px}
 
-/* list grid */
+/* lists */
 .list-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px}
 .list-card{background:rgba(255,255,255,0.03);padding:12px;border-radius:10px;display:flex;gap:8px;align-items:center;cursor:pointer}
 .avatar{width:44px;height:44px;border-radius:999px;background:linear-gradient(135deg,#7dd3fc,#60a5fa);display:flex;align-items:center;justify-content:center;color:#021124;font-weight:700}
 
-/* empty state */
+/* empty */
 .empty-state{color:var(--muted);font-size:14px;display:none;text-align:center;margin-top:12px}
 
 /* responsive */
