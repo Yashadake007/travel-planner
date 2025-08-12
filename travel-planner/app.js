@@ -1,5 +1,4 @@
-// app.js — small helpers: create spot, list spots, list choices
-// Requires firebase.js included before this file.
+// app.js — helpers for create/admin pages
 
 function appCreateSpot(payload){
   return db.collection('spots').add(payload);
