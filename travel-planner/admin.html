@@ -1,35 +1,36 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <title>Admin Login - Travel Planner</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin — Travel Planner</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="firebase.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h2>Admin Login</h2>
-  <form id="adminForm">
-    <input type="email" id="email" placeholder="Admin Email" required>
-    <input type="password" id="password" placeholder="Admin Password" required>
-    <button type="submit">Login</button>
-  </form>
+  <header class="site-header"><div class="brand">Admin</div></header>
+  <main style="padding:22px;">
+    <h2>All Spots</h2>
+    <div id="admin-spots"></div>
+    <h2 style="margin-top:24px">Recent Choices</h2>
+    <div id="admin-choices"></div>
+  </main>
 
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
   <script>
-    document.getElementById("adminForm").addEventListener("submit", e => {
-      e.preventDefault();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+    appListSpots().then(spots => {
+      const el = document.getElementById('admin-spots');
+      if(!spots.length) el.innerHTML = '<p style="color:var(--muted)">No spots</p>';
+      else el.innerHTML = spots.map(s => `<div style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.03);margin-bottom:8px"><strong>${s.title}</strong><div style="font-size:13px;color:var(--muted)">${s.description||''}</div></div>`).join('');
+    });
 
-      // Replace with your own admin credentials
-      const adminEmail = "admin@example.com";
-      const adminPassword = "admin123";
-
-      if (email === adminEmail && password === adminPassword) {
-        window.location.href = "create.html";
-      } else {
-        alert("Invalid admin credentials");
-      }
+    appListChoices().then(choices => {
+      const el = document.getElementById('admin-choices');
+      if(!choices.length) el.innerHTML = '<p style="color:var(--muted)">No choices</p>';
+      else el.innerHTML = choices.map(c => `<div style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.03);margin-bottom:8px"><strong>${c.choice}</strong> — ${c.spotId} — ${c.userId}</div>`).join('');
     });
   </script>
 </body>
