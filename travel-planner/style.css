@@ -1,73 +1,67 @@
 body {
-    font-family: 'Arial', sans-serif;
-    background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #ffecd2, #fcb69f);
     margin: 0;
     padding: 0;
     display: flex;
     justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
-.app-container {
-    width: 100%;
-    max-width: 400px;
+#app {
     text-align: center;
-    padding: 20px;
+    max-width: 400px;
+    width: 100%;
 }
 
-h1 {
-    color: white;
-    margin-bottom: 15px;
-}
-
-.trip-container {
+#card-container {
     position: relative;
+    width: 100%;
     height: 500px;
 }
 
-.trip-card {
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
-    overflow: hidden;
-    transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-.trip-image {
+.card {
+    position: absolute;
     width: 100%;
-    height: 220px;
-    background-size: cover;
-    background-position: center;
+    height: 100%;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    overflow: hidden;
+    transition: transform 0.4s ease, opacity 0.4s ease;
 }
 
-.trip-content {
+.card img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+}
+
+.card-content {
     padding: 15px;
     text-align: left;
 }
 
 .buttons {
-    display: flex;
-    justify-content: space-around;
     margin-top: 20px;
 }
 
-.btn {
+button {
+    padding: 10px 15px;
     border: none;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    font-size: 24px;
-    color: white;
+    border-radius: 10px;
+    margin: 0 5px;
     cursor: pointer;
+    font-size: 16px;
 }
 
-.btn.yes {
-    background: #27ae60;
+#yes-btn {
+    background-color: #4CAF50;
+    color: white;
 }
 
-.btn.no {
-    background: #e74c3c;
-}
-
-.btn:hover {
-    transform: scale(1.1);
+#no-btn {
+    background-color: #f44336;
+    color: white;
 }
