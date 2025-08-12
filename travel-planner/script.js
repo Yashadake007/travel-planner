@@ -1,7 +1,6 @@
-// script.js — Swipe logic (mouse + touch), overlays, Firestore writes, list modal.
-// Requires: firebase.js (auth and db defined), included before this file.
+// script.js — fixed & robust swipe + lists + auth UI updates
 
-// DOM elements
+// DOM references
 const cardStack = document.getElementById('card-stack');
 const emptyState = document.getElementById('empty-state');
 const overlay = document.getElementById('swipe-overlay');
@@ -23,35 +22,35 @@ const topSignup = document.getElementById('top-signup');
 
 modalClose && modalClose.addEventListener('click', ()=> modal.classList.add('hidden'));
 
-// app state
+// state
 let spots = [];
 let uid = 'anon';
 let activeCard = null;
 let isDragging = false;
 let startX = 0, startY = 0, currentX = 0, currentY = 0;
 
-// basic escape
-function escapeHtml(s){
-  if(!s) return '';
-  return String(s)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
+// escape helper
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
-// Auth UI
-topLogin && (topLogin.onclick = () => window.location.href = 'login.html');
-topSignup && (topSignup.onclick = () => window.location.href = 'signup.html');
-
+// hide/show top buttons on auth state
 auth.onAuthStateChanged(user => {
-  if(user){ uid = user.uid; }
-  else { uid = 'anon'; }
+  if(user){
+    uid = user.uid;
+    if(topLogin) topLogin.style.display = 'none';
+    if(topSignup) topSignup.style.display = 'none';
+  } else {
+    uid = 'anon';
+    if(topLogin) topLogin.style.display = '';
+    if(topSignup) topSignup.style.display = '';
+  }
   loadSpots();
 });
 
-// load spots from Firestore
+// navigations
+topLogin && (topLogin.onclick = () => window.location.href = 'login.html');
+topSignup && (topSignup.onclick = () => window.location.href = 'signup.html');
+
+// load spots
 function loadSpots(){
   db.collection('spots').orderBy('departureDate').get()
     .then(snapshot => {
@@ -64,7 +63,7 @@ function loadSpots(){
     });
 }
 
-// render stack
+// render
 function renderStack(){
   cardStack.innerHTML = '';
   if(!spots || spots.length === 0){
@@ -72,17 +71,21 @@ function renderStack(){
     return;
   } else emptyState.style.display = 'none';
 
+  // create cards bottom to top (so last is top)
   for(let i=0;i<spots.length;i++){
     const spot = spots[i];
     const card = document.createElement('div');
     card.className = 'trip-card';
     card.dataset.id = spot.id;
     card.dataset.index = i;
+    const imageUrl = escapeHtml(spot.imageUrl || spot.image || '');
+    const title = escapeHtml(spot.title || spot.name || 'Untitled');
+    const desc = escapeHtml(spot.description || spot.desc || '');
     card.innerHTML = `
-      <div class="trip-image" style="background-image:url('${escapeHtml(spot.imageUrl || '')}')"></div>
+      <div class="trip-image" style="background-image:url('${imageUrl}')"></div>
       <div class="trip-content">
-        <div class="trip-title">${escapeHtml(spot.title || 'Untitled')}</div>
-        <div class="trip-sub">${escapeHtml(spot.description || '')}</div>
+        <div class="trip-title">${title}</div>
+        <div class="trip-sub">${desc}</div>
       </div>
     `;
     const offset = spots.length - i - 1;
@@ -90,18 +93,26 @@ function renderStack(){
     card.style.transform = `scale(${1 - offset*0.02}) translateY(${offset*6}px)`;
     cardStack.appendChild(card);
   }
+
+  // attach to top card
   attachTopCardHandlers();
 }
 
 function attachTopCardHandlers(){
   const top = cardStack.querySelector('.trip-card:last-child');
   if(!top) return;
-  // pointer events
-  top.onpointerdown = startDrag;
-  window.onpointermove = onDrag;
-  window.onpointerup = endDrag;
-  // touch fallback
-  top.ontouchstart = (e) => e.preventDefault();
+
+  // ensure we don't double-attach by removing previous listeners
+  top.removeEventListener('pointerdown', startDrag);
+  top.addEventListener('pointerdown', startDrag);
+  // use window listeners for move/up so pointer capture works across viewport
+  window.removeEventListener('pointermove', onDrag);
+  window.removeEventListener('pointerup', endDrag);
+  window.addEventListener('pointermove', onDrag);
+  window.addEventListener('pointerup', endDrag);
+
+  // touch fallback (should be handled by pointer events on modern browsers)
+  top.addEventListener('touchstart', (e)=> e.preventDefault(), { passive:false });
 }
 
 function getPoint(e){
@@ -118,6 +129,8 @@ function startDrag(e){
   startX = p.x; startY = p.y; currentX = startX; currentY = startY;
   activeCard.style.transition = 'transform 0s';
   showOverlay(null,false);
+  // capture pointer (best-effort)
+  if(e.pointerId) activeCard.setPointerCapture && activeCard.setPointerCapture(e.pointerId);
 }
 
 function onDrag(e){
@@ -128,6 +141,7 @@ function onDrag(e){
   const dy = currentY - startY;
   const rot = dx / 12;
   activeCard.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+  // overlay selection
   if(Math.abs(dx) > Math.abs(dy)){
     if(dx > 30) showOverlay('interested');
     else if(dx < -30) showOverlay('not');
@@ -139,7 +153,7 @@ function onDrag(e){
   }
 }
 
-function endDrag(){
+function endDrag(e){
   if(!isDragging || !activeCard) return;
   isDragging = false;
   const dx = currentX - startX;
@@ -153,16 +167,21 @@ function endDrag(){
     if(dy < 0) doChoice('skipped');
     else doChoice('review');
   } else {
+    // reset
     activeCard.style.transition = 'transform 300ms ease';
     activeCard.style.transform = '';
     showOverlay(null,false);
+  }
+
+  // release pointer capture gracefully
+  if(e && e.pointerId) {
+    try { activeCard.releasePointerCapture && activeCard.releasePointerCapture(e.pointerId); } catch(_) {}
   }
 }
 
 function doChoice(choice){
   if(!activeCard) return;
   const spotId = activeCard.dataset.id;
-
   let tx=0, ty=0, rot=0;
   if(choice==='interested'){ tx = 520; rot=20; showOverlay('interested', true); }
   if(choice==='not_interested'){ tx = -520; rot=-20; showOverlay('not', true); }
@@ -182,12 +201,15 @@ function doChoice(choice){
   db.collection('userChoices').add(payload).catch(err => console.error('save choice', err));
 
   setTimeout(() => {
+    // remove top element from spots (it is last in DOM)
     spots.pop();
     if(activeCard && activeCard.parentNode) activeCard.parentNode.removeChild(activeCard);
     activeCard = null;
     showOverlay(null,false);
+
     if(spots.length > 0){
       attachTopCardHandlers();
+      // refresh transforms for remaining cards
       const cards = document.querySelectorAll('.trip-card');
       cards.forEach((c, idx) => {
         const offset = spots.length - idx - 1;
@@ -217,14 +239,14 @@ function showOverlay(kind, keepVisible = true){
   }
 }
 
-// Side buttons
+// side buttons
 btnInterested && btnInterested.addEventListener('click', ()=> openList('interested'));
 btnNot && btnNot.addEventListener('click', ()=> openList('not_interested'));
 btnSkip && btnSkip.addEventListener('click', ()=> openList('skipped'));
 btnReview && btnReview.addEventListener('click', ()=> openList('review'));
-btnLogout && btnLogout.addEventListener('click', ()=> auth.signOut().then(()=> window.location.href='login.html'));
+btnLogout && btnLogout.addEventListener('click', ()=> auth.signOut().then(()=> window.location.href='login.html').catch(()=> window.location.href='login.html'));
 
-// Modal: load user's choices
+// modal list loader
 function openList(choice){
   modal.classList.remove('hidden');
   modalTitle.textContent = choice === 'interested' ? 'Interested Spots' : choice === 'not_interested' ? 'Not Interested' : choice === 'skipped' ? 'Skipped' : 'Review';
@@ -238,17 +260,22 @@ function openList(choice){
     .then(snap => {
       if(snap.empty){ modalBody.innerHTML = '<p>No items found.</p>'; return; }
       const promises = [];
-      snap.forEach(doc => { const d = doc.data(); promises.push(db.collection('spots').doc(d.spotId).get().then(s=>({ id: s.id, ...s.data() })))});
+      snap.forEach(doc => {
+        const d = doc.data();
+        if(d && d.spotId) promises.push(db.collection('spots').doc(d.spotId).get().then(s => s.exists ? ({ id: s.id, ...s.data() }) : null));
+      });
       Promise.all(promises).then(results => {
+        const filtered = results.filter(r => r !== null);
+        if(filtered.length === 0){ modalBody.innerHTML = '<p>No spot details available.</p>'; return; }
         modalBody.innerHTML = '';
         const grid = document.createElement('div'); grid.className = 'list-grid';
-        results.forEach(r => {
+        filtered.forEach(r => {
           const el = document.createElement('div'); el.className = 'list-card';
           el.dataset.spotId = r.id;
-          el.innerHTML = `<div class="avatar">${escapeHtml((r.title||'S').charAt(0))}</div>
+          el.innerHTML = `<div class="avatar">${escapeHtml((r.title||r.name||'S').charAt(0))}</div>
                           <div style="flex:1">
-                            <strong>${escapeHtml(r.title||'Untitled')}</strong>
-                            <div class="trip-sub">${escapeHtml(r.description||'')}</div>
+                            <strong>${escapeHtml(r.title || r.name || 'Untitled')}</strong>
+                            <div class="trip-sub">${escapeHtml(r.description || r.desc || '')}</div>
                             <div style="margin-top:8px;color:var(--muted);font-size:12px">Click to see who else liked this</div>
                           </div>`;
           grid.appendChild(el);
@@ -259,21 +286,22 @@ function openList(choice){
     .catch(err => { console.error('openList', err); modalBody.innerHTML = '<p>Error loading list.</p>'; });
 }
 
-// Delegated click inside modal to fetch other users who liked the same spot
+// delegated click: show other users who liked the spot
 modalBody.addEventListener('click', (e) => {
   const card = e.target.closest('.list-card');
   if(!card) return;
   const spotId = card.dataset.spotId;
   if(!spotId) return;
 
+  modalBody.innerHTML = '<p>Loading users…</p>';
   db.collection('userChoices').where('spotId','==', spotId).where('choice','==','interested').get()
     .then(snap => {
-      if(snap.empty){ alert('No other users found who liked this spot.'); return; }
+      if(snap.empty){ modalBody.innerHTML = '<p>No other users found who liked this spot.</p>'; return; }
       const uids = new Set();
-      snap.forEach(d => uids.add(d.data().userId));
-      const arr = Array.from(uids).slice(0, 20);
-      if(arr.length === 0){ alert('No users found.'); return; }
-      const userPromises = arr.map(u => db.collection('users').doc(u).get().then(doc => ({ id: u, data: doc.exists ? doc.data() : null })));
+      snap.forEach(d => { const data = d.data(); if(data && data.userId) uids.add(data.userId); });
+      const arr = Array.from(uids).slice(0, 30);
+      if(arr.length === 0){ modalBody.innerHTML = '<p>No users found.</p>'; return; }
+      const userPromises = arr.map(u => db.collection('users').doc(u).get().then(doc => ({ id:u, data: doc.exists ? doc.data() : null })));
       Promise.all(userPromises).then(users => {
         modalBody.innerHTML = '';
         const info = document.createElement('div');
@@ -283,20 +311,19 @@ modalBody.addEventListener('click', (e) => {
         list.style.gridTemplateColumns = 'repeat(auto-fill,minmax(160px,1fr))';
         list.style.gap = '8px';
         users.forEach(u => {
-          const card = document.createElement('div');
-          card.style.background = 'rgba(255,255,255,0.03)';
-          card.style.padding = '8px';
-          card.style.borderRadius = '8px';
-          card.innerHTML = `<div style="font-weight:700">${u.data && (u.data.displayName || u.data.name) ? escapeHtml(u.data.displayName || u.data.name) : escapeHtml(u.id)}</div>
-                            <div style="font-size:12px;color:var(--muted)">${u.data && u.data.city ? escapeHtml(u.data.city) : ''}</div>`;
-          list.appendChild(card);
+          const c = document.createElement('div');
+          c.style.background = 'rgba(255,255,255,0.03)'; c.style.padding = '8px'; c.style.borderRadius = '8px';
+          const name = u.data && (u.data.displayName || u.data.name) ? escapeHtml(u.data.displayName || u.data.name) : escapeHtml(u.id);
+          const city = u.data && u.data.city ? escapeHtml(u.data.city) : '';
+          c.innerHTML = `<div style="font-weight:700">${name}</div><div style="font-size:12px;color:var(--muted)">${city}</div>`;
+          list.appendChild(c);
         });
         modalBody.appendChild(info);
         modalBody.appendChild(list);
       });
     })
-    .catch(err => { console.error('who liked', err); alert('Error fetching users.'); });
+    .catch(err => { console.error('who liked', err); modalBody.innerHTML = '<p>Error fetching users.</p>'; });
 });
 
-// ensure initial load
+// initial load
 loadSpots();
