@@ -1,38 +1,57 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Travel Planner</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Travel Planner — Swipe</title>
+
+  <!-- Firebase v8 libs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="card-container" id="card-container"></div>
+  <header class="site-header">
+    <div class="brand">✈️ Travel Planner</div>
+    <div class="header-actions">
+      <button id="top-login" class="ghost-btn">Login</button>
+      <button id="top-signup" class="ghost-btn">Sign up</button>
+    </div>
+  </header>
 
-  <!-- Swipe overlays -->
-  <div id="overlay-like" class="swipe-overlay">❤️</div>
-  <div id="overlay-dislike" class="swipe-overlay">💔</div>
-  <div id="overlay-skip" class="swipe-overlay">⏩</div>
-  <div id="overlay-review" class="swipe-overlay">🔄</div>
+  <main class="main">
+    <section class="cards-area">
+      <div id="card-stack" class="card-stack" aria-live="polite"></div>
+      <div id="empty-state" class="empty-state">No more spots — come back later!</div>
+    </section>
 
-  <!-- Side panel -->
-  <div class="side-panel">
-    <button id="btn-interested" title="Interested List">❤️</button>
-    <button id="btn-not-interested" title="Not Interested List">💔</button>
-    <button id="btn-skipped" title="Skipped Spots">⏩</button>
-    <button id="btn-review" title="Review Later">🔄</button>
-    <button id="btn-logout" title="Logout">🚪</button>
-  </div>
+    <aside class="right-panel" aria-label="actions">
+      <button id="btn-interested" class="side-btn" title="My Interested">❤️</button>
+      <button id="btn-not" class="side-btn" title="My Not Interested">💔</button>
+      <button id="btn-skip" class="side-btn" title="My Skipped">⏩</button>
+      <button id="btn-review" class="side-btn" title="My Review Later">🔄</button>
+      <button id="btn-logout" class="side-btn logout" title="Logout">🚪</button>
+    </aside>
+  </main>
 
-  <!-- Modal -->
-  <div id="modal" class="modal">
+  <!-- Modal for lists -->
+  <div id="list-modal" class="modal hidden" role="dialog" aria-hidden="true">
     <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2 id="modal-title"></h2>
-      <ul id="modal-list"></ul>
+      <button class="modal-close" id="modal-close" aria-label="Close">✖</button>
+      <h2 id="modal-title">List</h2>
+      <div id="modal-body" class="modal-body"></div>
     </div>
   </div>
 
+  <!-- Swipe overlay icon -->
+  <div id="swipe-overlay" class="swipe-overlay hidden" aria-hidden="true">
+    <span id="overlay-icon" class="overlay-icon"></span>
+  </div>
+
+  <!-- firebase config + main script -->
   <script src="firebase.js"></script>
   <script src="script.js"></script>
 </body>
