@@ -1,20 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Travel Planner</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Travel Planner - Home</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+  <script src="firebase.js"></script>
 </head>
 <body>
-    <div id="app">
-        <h1>🌍 Travel Planner</h1>
-        <div id="card-container"></div>
-        <div class="buttons">
-            <button id="no-btn">❌ Not Interested</button>
-            <button id="yes-btn">✅ Interested</button>
-        </div>
-    </div>
-<script type="module" src="app.js"></script>
+
+<header>
+  Travel Planner
+  <div style="margin-top:5px;">
+    <button onclick="location.href='create.html'">Create Spot</button>
+    <button onclick="location.href='mytrips.html'">My Trips</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div id="card-container"></div>
+
+<div style="margin-top:20px;">
+  <button onclick="swipe('left')">❌ Not Interested</button>
+  <button onclick="swipe('right')">❤️ Interested</button>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
