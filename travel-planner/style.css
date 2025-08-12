@@ -1,4 +1,4 @@
-/* General Reset */
+/* style.css */
 * {
   margin: 0;
   padding: 0;
@@ -12,20 +12,17 @@ body {
   flex-direction: column;
   align-items: center;
   height: 100vh;
-  overflow-x: hidden;
 }
 
-/* Navbar Styling */
 .navbar {
   display: flex;
   justify-content: space-between;
   width: 100%;
   padding: 10px 20px;
+  background: rgba(255,255,255,0.3);
+  backdrop-filter: blur(10px);
   position: fixed;
   top: 0;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(10px);
 }
 
 .navbar button {
@@ -36,26 +33,16 @@ body {
   color: white;
   font-weight: bold;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.navbar button:hover {
-  transform: scale(1.05);
-  box-shadow: 0px 4px 12px rgba(255, 111, 97, 0.4);
-}
-
-/* Card Container */
 .card-container {
   position: relative;
   margin-top: 70px;
   width: 100%;
   display: flex;
   justify-content: center;
-  height: calc(100vh - 70px);
-  overflow: hidden;
 }
 
-/* Card Styling */
 .card {
   position: absolute;
   width: 90%;
@@ -64,7 +51,6 @@ body {
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0px 10px 30px rgba(0,0,0,0.15);
-  transition: transform 0.3s ease, opacity 0.3s ease;
   animation: fadeIn 0.5s ease;
 }
 
@@ -83,47 +69,17 @@ body {
   color: #ff6f61;
 }
 
-.card-content p {
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-
-/* Swipe Action Icons */
 .action-icons {
   position: absolute;
   font-size: 60px;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.like {
-  color: #28a745;
-  top: 40%;
-  left: 10px;
-}
+.like { color: #28a745; top: 40%; left: 10px; }
+.dislike { color: #dc3545; top: 40%; right: 10px; }
 
-.dislike {
-  color: #dc3545;
-  top: 40%;
-  right: 10px;
-}
+.show { opacity: 0.8; transform: scale(1.2); }
 
-.up-skip {
-  color: #f39c12;
-  top: 20px;
-}
-
-.down-review {
-  color: #9b59b6;
-  bottom: 20px;
-}
-
-.show {
-  opacity: 0.8 !important;
-  transform: scale(1.2);
-}
-
-/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
