@@ -1,226 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Travel Planner</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-<script src="firebase.js"></script>
-
-<style>
-body {
-  font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-}
-
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 20px;
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(5px);
-  position: fixed;
-  width: 100%;
-  z-index: 10;
-}
-
-.navbar button {
-  border: none;
-  padding: 8px 15px;
-  border-radius: 20px;
-  background: #ff6f61;
-  color: white;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.card-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.card {
-  position: absolute;
-  width: 90%;
-  max-width: 400px;
-  background: white;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0px 8px 20px rgba(0,0,0,0.2);
-  transition: transform 0.5s ease, opacity 0.5s ease;
-}
-
-.card img {
-  width: 100%;
-  height: 250px;
-  object-fit: cover;
-}
-
-.card-content {
-  padding: 15px;
-}
-
-.action-icons {
-  position: absolute;
-  top: 50%;
-  font-size: 60px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.like {
-  color: green;
-  left: 20px;
-}
-
-.dislike {
-  color: red;
-  right: 20px;
-}
-
-.up-skip, .down-review {
-  color: orange;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.show {
-  opacity: 0.8 !important;
-}
-</style>
+  <title>Travel Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+  <script src="firebase.js"></script>
 </head>
 <body>
+  <div class="navbar">
+    <button onclick="window.location.href='create.html'">Create Spot</button>
+    <button onclick="logout()">Logout</button>
+  </div>
 
-<div class="navbar">
-  <button onclick="window.location.href='create.html'">Create Spot</button>
-  <button onclick="logout()">Logout</button>
-</div>
+  <div class="card-container" id="card-container"></div>
 
-<div class="card-container" id="cardContainer"></div>
+  <script>
+    let spots = [];
+    let currentIndex = 0;
 
-<script>
-let spots = [];
-let currentIndex = 0;
-
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = 'login.html';
-  } else {
-    loadSpots();
-  }
-});
-
-async function loadSpots() {
-  const snapshot = await db.collection("spots").get();
-  spots = snapshot.docs.map(doc => doc.data());
-  renderCard();
-}
-
-function renderCard() {
-  if (currentIndex >= spots.length) {
-    document.getElementById("cardContainer").innerHTML = "<h2>No more trips</h2>";
-    return;
-  }
-
-  const spot = spots[currentIndex];
-  const container = document.getElementById("cardContainer");
-  container.innerHTML = `
-    <div class="card" id="activeCard">
-      <img src="${spot.imageUrl || 'default.jpg'}" alt="${spot.name}">
-      <div class="card-content">
-        <h3>${spot.name}</h3>
-        <p><strong>Cost:</strong> ₹${spot.cost}</p>
-        <p><strong>People:</strong> ${spot.people}</p>
-        <p><strong>Points:</strong> ${spot.points}</p>
-        <p><strong>From:</strong> ${spot.startDate} <strong>To:</strong> ${spot.endDate}</p>
-        <p><strong>Transport:</strong> ${spot.transport}</p>
-      </div>
-      <div class="action-icons like" id="likeIcon">❤️</div>
-      <div class="action-icons dislike" id="dislikeIcon">💔</div>
-      <div class="action-icons up-skip" id="skipIcon">⏫</div>
-      <div class="action-icons down-review" id="reviewIcon">🔄</div>
-    </div>
-  `;
-
-  addSwipeHandlers();
-}
-
-function addSwipeHandlers() {
-  const card = document.getElementById("activeCard");
-  let startX, startY;
-
-  card.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-  });
-
-  card.addEventListener('touchmove', e => {
-    const deltaX = e.touches[0].clientX - startX;
-    const deltaY = e.touches[0].clientY - startY;
-
-    card.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${deltaX/10}deg)`;
-
-    if (deltaX > 50) document.getElementById("likeIcon").classList.add("show");
-    else document.getElementById("likeIcon").classList.remove("show");
-
-    if (deltaX < -50) document.getElementById("dislikeIcon").classList.add("show");
-    else document.getElementById("dislikeIcon").classList.remove("show");
-
-    if (deltaY < -50) document.getElementById("skipIcon").classList.add("show");
-    else document.getElementById("skipIcon").classList.remove("show");
-
-    if (deltaY > 50) document.getElementById("reviewIcon").classList.add("show");
-    else document.getElementById("reviewIcon").classList.remove("show");
-  });
-
-  card.addEventListener('touchend', e => {
-    const deltaX = e.changedTouches[0].clientX - startX;
-    const deltaY = e.changedTouches[0].clientY - startY;
-
-    if (deltaX > 100) {
-      // Interested
-      console.log("Interested:", spots[currentIndex].name);
-      nextCard();
-    } else if (deltaX < -100) {
-      // Not interested
-      console.log("Not Interested:", spots[currentIndex].name);
-      nextCard();
-    } else if (deltaY < -100) {
-      // Skip
-      console.log("Skipped:", spots[currentIndex].name);
-      nextCard();
-    } else if (deltaY > 100) {
-      // Review
-      console.log("Review:", spots[currentIndex].name);
-      nextCard();
-    } else {
-      card.style.transform = "translate(0,0)";
+    function loadSpots() {
+      db.collection("spots").get().then(snapshot => {
+        spots = snapshot.docs.map(doc => doc.data());
+        showSpot();
+      });
     }
-  });
-}
 
-function nextCard() {
-  currentIndex++;
-  renderCard();
-}
+    function showSpot() {
+      if (currentIndex >= spots.length) {
+        document.getElementById("card-container").innerHTML = "<h3>No more spots!</h3>";
+        return;
+      }
 
-function logout() {
-  auth.signOut();
-}
-</script>
+      const spot = spots[currentIndex];
+      document.getElementById("card-container").innerHTML = `
+        <div class="card">
+          <img src="${spot.imageURL}" alt="${spot.name}">
+          <div class="card-content">
+            <h3>${spot.name}</h3>
+            <p>Cost: ${spot.cost}</p>
+            <p>People: ${spot.people}</p>
+            <p>Points: ${spot.points}</p>
+            <p>Go: ${spot.startDate}</p>
+            <p>Return: ${spot.endDate}</p>
+            <p>Transport: ${spot.transport}</p>
+          </div>
+        </div>
+      `;
+    }
 
+    function logout() {
+      auth.signOut().then(() => {
+        window.location.href = "login.html";
+      });
+    }
+
+    loadSpots();
+  </script>
 </body>
 </html>
