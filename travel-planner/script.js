@@ -1,106 +1,105 @@
-// script.js
-
-let spots = [];
-let currentIndex = 0;
-
-// Load spots from Firestore
+let currentUser = null;
 auth.onAuthStateChanged(user => {
   if (!user) {
     window.location.href = 'login.html';
-    return;
+  } else {
+    currentUser = user;
+    loadCards();
   }
-  db.collection('spots').get().then(snapshot => {
-    spots = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderCard();
-  });
 });
 
-function renderCard() {
-  const container = document.getElementById('card-container');
-  container.innerHTML = '';
-
-  if (currentIndex >= spots.length) {
-    container.innerHTML = '<h3>No more spots!</h3>';
-    return;
-  }
-
-  const spot = spots[currentIndex];
-
-  const card = document.createElement('div');
-  card.classList.add('card');
-  
-  card.innerHTML = `
-    <div class="icon-like">❤️</div>
-    <div class="icon-dislike">💔</div>
-    <img src="${spot.imageUrl || 'https://via.placeholder.com/300'}" alt="Spot Image"/>
-    <div class="card-content">
-      <h3>${spot.name}</h3>
-      <p><strong>Cost:</strong> ₹${spot.cost}</p>
-      <p><strong>People:</strong> ${spot.people}</p>
-      <p><strong>Points:</strong> ${spot.points}</p>
-      <p><strong>Go:</strong> ${spot.startDate}</p>
-      <p><strong>Arrive:</strong> ${spot.endDate}</p>
-      <p><strong>Transport:</strong> ${spot.transport}</p>
-    </div>
-  `;
-
-  container.appendChild(card);
-
-  let startX, startY;
-  card.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-  });
-
-  card.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > 50) swipe('right');
-      else if (dx < -50) swipe('left');
-    } else {
-      if (dy < -50) skipUp();
-      else if (dy > 50) reviewDown();
-    }
+function loadCards() {
+  db.collection("spots").get().then(snapshot => {
+    const container = document.getElementById("card-container");
+    container.innerHTML = '';
+    snapshot.forEach(doc => {
+      const spot = doc.data();
+      const card = document.createElement("div");
+      card.classList.add("card");
+      card.dataset.id = doc.id;
+      card.innerHTML = `<img src="${spot.image}" alt="">
+                        <h3>${spot.name}</h3>`;
+      container.appendChild(card);
+    });
+    initSwipe();
   });
 }
 
-function swipe(direction) {
-  const card = document.querySelector('.card');
-  if (!card) return;
+function initSwipe() {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach(card => {
+    let startX, startY;
 
-  if (direction === 'right') {
-    card.classList.add('like');
-    saveInterested(spots[currentIndex]);
-  } else {
-    card.classList.add('dislike');
-  }
+    card.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    });
 
-  setTimeout(() => {
-    currentIndex++;
-    renderCard();
-  }, 400);
-}
+    card.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
 
-function skipUp() {
-  currentIndex++;
-  renderCard();
-}
-
-function reviewDown() {
-  if (currentIndex > 0) currentIndex--;
-  renderCard();
-}
-
-function saveInterested(spot) {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  db.collection('users').doc(user.uid).collection('interested').doc(spot.id).set(spot);
-}
-
-function logout() {
-  auth.signOut().then(() => {
-    window.location.href = 'login.html';
+      if (absX > absY) {
+        if (dx > 50) handleChoice(card, "interested");
+        else if (dx < -50) handleChoice(card, "not_interested");
+      } else {
+        if (dy < -50) handleChoice(card, "skipped");
+        else if (dy > 50) handleChoice(card, "review");
+      }
+    });
   });
 }
+
+function handleChoice(card, choice) {
+  const overlays = {
+    interested: document.getElementById('overlay-like'),
+    not_interested: document.getElementById('overlay-dislike'),
+    skipped: document.getElementById('overlay-skip'),
+    review: document.getElementById('overlay-review')
+  };
+  overlays[choice].classList.add('show-overlay');
+  setTimeout(() => overlays[choice].classList.remove('show-overlay'), 800);
+
+  db.collection("userChoices").add({
+    userId: currentUser.uid,
+    spotId: card.dataset.id,
+    choice: choice,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  card.remove();
+}
+
+function openModal(title, filter) {
+  const modal = document.getElementById('modal');
+  const list = document.getElementById('modal-list');
+  const titleEl = document.getElementById('modal-title');
+  titleEl.textContent = title;
+  list.innerHTML = '';
+
+  db.collection("userChoices")
+    .where("userId", "==", currentUser.uid)
+    .where("choice", "==", filter)
+    .get()
+    .then(snapshot => {
+      snapshot.forEach(doc => {
+        const li = document.createElement('li');
+        li.textContent = doc.data().spotId;
+        list.appendChild(li);
+      });
+      modal.style.display = 'block';
+    });
+}
+
+document.getElementById('btn-interested').onclick = () => openModal("Interested Spots", "interested");
+document.getElementById('btn-not-interested').onclick = () => openModal("Not Interested", "not_interested");
+document.getElementById('btn-skipped').onclick = () => openModal("Skipped Spots", "skipped");
+document.getElementById('btn-review').onclick = () => openModal("Review Later", "review");
+document.getElementById('btn-logout').onclick = () => auth.signOut();
+
+document.querySelector('.close').onclick = () => document.getElementById('modal').style.display = 'none';
+window.onclick = e => {
+  if (e.target == document.getElementById('modal')) document.getElementById('modal').style.display = 'none';
+};
