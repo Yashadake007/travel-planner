@@ -1,21 +1,41 @@
 body {
     font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #ffecd2, #fcb69f);
+    margin: 0;
+    padding: 0;
     text-align: center;
-    background: #f5f5f5;
 }
 
-input, textarea, button {
-    display: block;
-    margin: 10px auto;
-    padding: 8px;
-    width: 80%;
-    max-width: 300px;
+h2 {
+    color: #333;
+    padding: 15px;
 }
 
 .trip-card {
     background: white;
-    padding: 15px;
-    margin: 10px;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    width: 85%;
+    max-width: 350px;
+    margin: auto;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0px 8px 20px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.trip-card h3 {
+    margin-top: 0;
+    font-size: 22px;
+    color: #ff5733;
+}
+
+.trip-card p {
+    font-size: 16px;
+    color: #555;
+    margin: 8px 0;
+}
+
+i {
+    color: #ff5733;
+    margin-right: 6px;
 }
