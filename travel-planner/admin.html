@@ -1,69 +1,81 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin • Travel Planner</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <link rel="stylesheet" href="style.css">
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase.js"></script>
 </head>
-<body>
-  <div class="navbar">
-    <div class="brand">Admin Panel</div>
-    <div class="nav-actions">
-      <button onclick="location.href='create.html'">Create Spot</button>
-      <button onclick="location.href='index.html'">Home</button>
-      <button onclick="signOutGo()">Logout</button>
-    </div>
+<body style="padding:20px">
+  <h2>Admin</h2>
+  <p class="muted">Only allowed emails can access.</p>
+  <div id="admin-ui" style="display:none">
+    <button class="ghost-btn" id="seed">Seed Sample Spots</button>
+    <div id="spots" style="margin-top:16px"></div>
   </div>
+  <p><a class="ghost-btn" href="index.html">Back</a></p>
 
-  <div class="container">
-    <h2>All Spots</h2>
-    <div id="list"></div>
-  </div>
+  <script src="firebase.js"></script>
+  <script>
+    const ALLOWED = ["you@example.com"]; // <-- put your admin email(s) here
 
-<script>
-let me=null;
-requireAuth().then(async u=>{
-  me=u;
-  // Soft admin check: require /admins/{uid} doc to exist
-  const adminDoc = await db.collection('admins').doc(me.uid).get();
-  if (!adminDoc.exists) { alert('Not an admin'); window.location.href='index.html'; return; }
-  load();
-});
+    firebase.auth().onAuthStateChanged(async u=>{
+      if(!u){ alert('Login required.'); location.href='login.html'; return; }
+      if(!ALLOWED.includes(u.email)){ alert('Not authorized.'); location.href='index.html'; return; }
+      document.getElementById('admin-ui').style.display='block';
+      await load();
+    });
 
-async function load(){
-  const root = document.getElementById('list'); root.innerHTML='';
-  const snap = await db.collection('spots').orderBy('createdAt','desc').get();
-  if (snap.empty){ root.innerHTML='<p class="empty">No spots yet.</p>'; return; }
+    async function load(){
+      const cont = document.getElementById('spots');
+      cont.innerHTML = 'Loading…';
+      const snap = await firebase.firestore().collection('spots').orderBy('createdAt','desc').get();
+      if (snap.empty){ cont.innerHTML = '<p>No spots yet.</p>'; return; }
+      const list = document.createElement('div');
+      snap.forEach(d=>{
+        const s = d.data();
+        const div = document.createElement('div');
+        div.className='list-item';
+        div.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center;justify-content:space-between">
+            <div>
+              <strong>${s.name||'(no name)'}</strong>
+              <div class="muted" style="font-size:12px">${s.city||''}</div>
+            </div>
+            <div>
+              <button class="ghost-btn" data-id="${d.id}" onclick="delSpot('${d.id}')">Delete</button>
+            </div>
+          </div>`;
+        list.appendChild(div);
+      });
+      cont.innerHTML='';
+      cont.appendChild(list);
+    }
+    window.delSpot = async function(id){
+      if(!confirm('Delete this spot?')) return;
+      await firebase.firestore().collection('spots').doc(id).delete();
+      await load();
+    };
 
-  const table = document.createElement('table'); table.className='table';
-  table.innerHTML = `<thead><tr><th>#</th><th>Name</th><th>Cost</th><th>People</th><th>Actions</th></tr></thead><tbody></tbody>`;
-  const tb = table.querySelector('tbody');
-  let idx=1;
-  for (const d of snap.docs){
-    const s = { id:d.id, ...d.data() };
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${idx++}</td><td>${s.name||'-'}</td><td>${s.cost||'-'}</td><td>${s.people||'-'}</td>
-    <td>
-      <button class="primary-btn" onclick="editSpot('${s.id}')">Edit</button>
-      <button class="primary-btn" style="background:#b42318" onclick="delSpot('${s.id}')">Delete</button>
-    </td>`;
-    tb.appendChild(tr);
-  }
-  root.appendChild(table);
-}
-
-function editSpot(id){ alert('For brevity, inline edit not implemented. You can delete and recreate, or extend here.'); }
-async function delSpot(id){
-  if(!confirm('Delete this spot?')) return;
-  await db.collection('spots').doc(id).delete();
-  await db.collection('spots_interests').doc(id).delete().catch(()=>{});
-  load();
-}
-</script>
+    document.getElementById('seed').addEventListener('click', async ()=>{
+      const batch = firebase.firestore().batch();
+      const col = firebase.firestore().collection('spots');
+      const seed = [
+        {name:'Goa Beach Escape', city:'Goa', image:'https://picsum.photos/seed/goa/800/500', cost:'15000', people:'2', points:'Sunset, Seafood, Shacks', startDate:'Oct 1', endDate:'Oct 4', transport:'Flight'},
+        {name:'Manali Hills', city:'Manali', image:'https://picsum.photos/seed/manali/800/500', cost:'12000', people:'4', points:'Snow, Trek, Cafe', startDate:'Dec 10', endDate:'Dec 14', transport:'Bus'},
+        {name:'Jaipur Heritage', city:'Jaipur', image:'https://picsum.photos/seed/jaipur/800/500', cost:'9000', people:'3', points:'Forts, Food, Markets', startDate:'Nov 5', endDate:'Nov 7', transport:'Train'},
+      ];
+      seed.forEach(s=>{
+        const ref = col.doc();
+        batch.set(ref, { ...s, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      });
+      await batch.commit();
+      alert('Seeded 3 spots.');
+      await load();
+    });
+  </script>
 </body>
 </html>
