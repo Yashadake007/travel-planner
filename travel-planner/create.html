@@ -1,146 +1,22 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Create Spot</title>
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <style>
-    body{margin:0;background:#0b1220;color:#e6efff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    .wrap{max-width:760px;margin:0 auto;padding:22px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    .card{background:#0f1629;border:1px solid #203152;border-radius:16px;padding:16px}
-    label{display:block;font-size:12px;color:#9aa4b2;margin-bottom:6px}
-    input,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #253451;background:#0b1220;color:#e6efff}
-    textarea{min-height:82px;resize:vertical}
-    .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    .pill{padding:8px 14px;border:1px solid #2b3a55;border-radius:999px;background:#0f1629;color:#d7e3ff;cursor:pointer}
-    .pill:hover{background:#141d35}
-    .muted{color:#9aa4b2}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="bar">
-      <div><strong>Create Spot</strong></div>
-      <div style="display:flex;gap:8px">
-        <a class="pill" href="./index.html">Back to swipe</a>
-        <button class="pill" id="btn-login">Login</button>
-        <button class="pill" id="btn-logout" style="display:none">Logout</button>
-      </div>
-    </div>
+<form id="createSpotForm">
+  <label>Spot Name:</label>
+  <input type="text" id="spotName" required />
 
-    <div class="card">
-      <div class="row">
-        <div>
-          <label>Name</label>
-          <input id="name" placeholder="Manali Adventure"/>
-        </div>
-        <div>
-          <label>Location</label>
-          <input id="location" placeholder="Manali, HP"/>
-        </div>
-      </div>
+  <label>Description:</label>
+  <textarea id="spotDescription"></textarea>
 
-      <div class="row">
-        <div>
-          <label>Image URL</label>
-          <input id="imageURL" placeholder="https://…"/>
-        </div>
-        <div>
-          <label>Cost (₹)</label>
-          <input id="cost" type="number" placeholder="20000"/>
-        </div>
-      </div>
+  <label>Image URL:</label>
+  <input type="text" id="spotImage" placeholder="https://example.com/photo.jpg" />
 
-      <div class="row">
-        <div>
-          <label>People</label>
-          <input id="people" type="number" placeholder="2"/>
-        </div>
-        <div>
-          <label>Transport</label>
-          <input id="transport" placeholder="flight / train / car"/>
-        </div>
-      </div>
+  <button type="submit">Create Spot</button>
+</form>
 
-      <div class="row">
-        <div>
-          <label>Start Date</label>
-          <input id="startDate" type="date"/>
-        </div>
-        <div>
-          <label>End Date</label>
-          <input id="endDate" type="date"/>
-        </div>
-      </div>
+<p id="statusMsg"></p>
 
-      <div>
-        <label>Points</label>
-        <textarea id="points" placeholder="beaches, church, cafe…"></textarea>
-      </div>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
-      <div style="margin-top:14px;display:flex;gap:10px">
-        <button class="pill" id="btn-add">Add</button>
-        <span class="muted" id="status"></span>
-      </div>
-    </div>
-  </div>
-
-  <script type="module">
-    import {
-      auth, db, provider,
-      collection, addDoc, serverTimestamp,
-      onAuthStateChanged, signInWithPopup, signOut
-    } from "./js/firebase.js";
-
-    const btnLogin = document.getElementById('btn-login');
-    const btnLogout = document.getElementById('btn-logout');
-    const statusEl = document.getElementById('status');
-
-    btnLogin.onclick = async ()=> { await signInWithPopup(auth, provider); };
-    btnLogout.onclick = async ()=> { await signOut(auth); };
-
-    onAuthStateChanged(auth, (u)=>{
-      if (!u){
-        btnLogin.style.display = "";
-        btnLogout.style.display = "none";
-      } else {
-        btnLogin.style.display = "none";
-        btnLogout.style.display = "";
-      }
-    });
-
-    document.getElementById('btn-add').onclick = async ()=>{
-      const user = auth.currentUser;
-      if (!user){ alert('Please login first.'); return; }
-
-      const data = {
-        name: document.getElementById('name').value.trim(),
-        location: document.getElementById('location').value.trim(),
-        imageURL: document.getElementById('imageURL').value.trim(),
-        cost: Number(document.getElementById('cost').value || 0),
-        people: Number(document.getElementById('people').value || 0),
-        transport: document.getElementById('transport').value.trim(),
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value,
-        points: document.getElementById('points').value.trim(),
-        createdAt: serverTimestamp(),
-        createdBy: user.uid
-      };
-
-      try{
-        statusEl.textContent = 'Saving…';
-        await addDoc(collection(db,'spots'), data);
-        statusEl.textContent = 'Saved! Go back to Swipe.';
-        // quick reset
-        document.querySelectorAll('input,textarea').forEach(el=> el.value='');
-      }catch(e){
-        console.error(e);
-        statusEl.textContent = 'Error: ' + (e.message || e);
-        alert('Missing or insufficient permissions. Check Firestore rules.');
-      }
-    };
-  </script>
-</body>
-</html>
+<script src="firebaseConfig.js"></script>
+<script src="app.js"></script>
+<script src="js/create.js"></script>
