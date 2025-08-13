@@ -11,26 +11,9 @@ const firebaseConfig = {
 };
 
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-window.auth = firebase.auth();
-window.db = firebase.firestore();
-window.storage = firebase.storage();
-
-// Helpers
-window.requireAuth = (redirect = 'login.html') =>
-  new Promise(resolve => {
-    auth.onAuthStateChanged(u => {
-      if (!u) window.location.href = redirect;
-      else resolve(u);
-    });
-  });
-
-window.signOutGo = (to = 'login.html') =>
-  auth.signOut().then(() => (window.location.href = to));
-
-// Upload helper (returns downloadURL)
-window.uploadImageFile = async (file, path) => {
-  const ref = storage.ref().child(path);
-  await ref.put(file);
-  return await ref.getDownloadURL();
-};
+// Optional: expose for console debugging
+window.auth = auth;
+window.db = db;
