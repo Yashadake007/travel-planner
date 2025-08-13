@@ -8,8 +8,91 @@
   let spots = [];
   let idx = 0;            // current index in spots
   let history = [];       // stack for review (down swipe goes back)
-
+  let currentIndex = 0;
+  let interestedList = [];
+  let notInterestedList = [];
+  let skippedList = []
   // boot
+  const cardContainer = document.getElementById("card-container");
+  const interestedBtn = document.getElementById("interested-btn");
+  const notInterestedBtn = document.getElementById("not-interested-btn");
+  const skipBtn = document.getElementById("skip-btn");
+  const reconsiderBtn = document.getElementById("reconsider-btn");
+  function loadCard(index) {
+    if (index >= spots.length) {
+        cardContainer.innerHTML = `<div class="no-more">No more spots to show!</div>`;
+        return;
+    }
+
+    const spot = spots[index];
+    cardContainer.innerHTML = `
+        <div class="spot-card" id="spot-card">
+            <img src="${spot.image}" alt="${spot.name}">
+            <h2>${spot.name}</h2>
+            <p><strong>Cost:</strong> ₹${spot.cost}</p>
+            <p><strong>People:</strong> ${spot.people}</p>
+            <p><strong>Points:</strong> ${spot.points}</p>
+            <p><strong>Dates:</strong> ${spot.startDate} → ${spot.endDate}</p>
+            <p><strong>Transport:</strong> ${spot.transport}</p>
+        </div>
+    `;
+}
+
+function swipeCard(direction) {
+    const card = document.getElementById("spot-card");
+    if (!card) return;
+
+    if (direction === "right") {
+        interestedList.push(spots[currentIndex]);
+        card.style.transform = "translateX(400px) rotate(20deg)";
+        showFeedback("❤️");
+    } else if (direction === "left") {
+        notInterestedList.push(spots[currentIndex]);
+        card.style.transform = "translateX(-400px) rotate(-20deg)";
+        showFeedback("💔");
+    } else if (direction === "skip") {
+        skippedList.push(spots[currentIndex]);
+        card.style.transform = "translateY(-400px)";
+    } else if (direction === "reconsider") {
+        if (skippedList.length > 0) {
+            currentIndex--;
+            spots.splice(currentIndex, 0, skippedList.pop());
+        }
+        card.style.transform = "translateY(400px)";
+    }
+
+    card.style.opacity = "0";
+
+    setTimeout(() => {
+        currentIndex++;
+        loadCard(currentIndex);
+    }, 300);
+}
+
+function showFeedback(symbol) {
+    const feedback = document.createElement("div");
+    feedback.className = "feedback";
+    feedback.textContent = symbol;
+    document.body.appendChild(feedback);
+    setTimeout(() => feedback.remove(), 600);
+}
+
+// Button Listeners
+interestedBtn.addEventListener("click", () => swipeCard("right"));
+notInterestedBtn.addEventListener("click", () => swipeCard("left"));
+skipBtn.addEventListener("click", () => swipeCard("skip"));
+reconsiderBtn.addEventListener("click", () => swipeCard("reconsider"));
+
+// Swipe gesture support
+let startX = 0;
+cardContainer.addEventListener("touchstart", e => startX = e.touches[0].clientX);
+cardContainer.addEventListener("touchend", e => {
+    let endX = e.changedTouches[0].clientX;
+    if (endX - startX > 50) swipeCard("right");
+    else if (startX - endX > 50) swipeCard("left");
+});
+
+loadCard(currentIndex);
   requireAuth().then(async (u) => {
     user = u;
     await loadSpots();
@@ -233,3 +316,4 @@
     if (backBtn) backBtn.addEventListener('click', handler('review'));
   }
 })();
+
