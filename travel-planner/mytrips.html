@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Lists • Travel Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="firebase.js"></script>
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">My Lists</div>
+    <div class="nav-actions">
+      <button onclick="location.href='index.html'">Home</button>
+      <button onclick="signOutGo()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Your choices</h2>
+    <div id="lists"></div>
+  </div>
+
+  <!-- Modal reused -->
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <header>
+        <span id="modalTitle">People</span>
+        <button class="close" onclick="closeModal()">✕</button>
+      </header>
+      <div class="body">
+        <div id="modalSpotName" style="font-weight:700; margin-bottom:8px;"></div>
+        <div id="peopleList"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let me=null;
+requireAuth().then(async u=>{
+  me=u;
+  await loadLists();
+});
+
+async function loadLists(){
+  const root = document.getElementById('lists');
+  root.innerHTML = '';
+
+  const blocks = [
+    { title:'❤️ Interested', col:'interested' },
+    { title:'💔 Not Interested', col:'notInterested' },
+    { title:'⏫ Skipped', col:'skipped' },
+  ];
+
+  for (const b of blocks){
+    const snap = await db.collection('users').doc(me.uid).collection(b.col).orderBy('at','desc').get();
+    const sec = document.createElement('div');
+    sec.className='container';
+    sec.innerHTML = `<h2>${b.title}</h2>`;
+    if (snap.empty){
+      sec.innerHTML += `<p class="empty">Nothing yet.</p>`;
+    } else {
+      const table = document.createElement('table'); table.className='table';
+      table.innerHTML = `<thead><tr><th>#</th><th>Spot</th><th>View People</th></tr></thead><tbody></tbody>`;
+      const tb = table.querySelector('tbody');
+      let idx=1;
+      for (const d of snap.docs){
+        const { spotId, name } = d.data();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${idx++}</td><td>${name||'-'}</td>
+        <td><button class="primary-btn" onclick="openPeople('${spotId}','${name?.replace(/'/g,"\\'")||''}')">View</button></td>`;
+        tb.appendChild(tr);
+      }
+      sec.appendChild(table);
+    }
+    root.appendChild(sec);
+  }
+}
+
+async function openPeople(spotId, name){
+  const doc = await db.collection('spots_interests').doc(spotId).get();
+  const data = doc.exists?doc.data():{};
+  const arr = data.interestedUsers || [];
+  document.getElementById('modalTitle').textContent = 'People Interested';
+  document.getElementById('modalSpotName').textContent = `Spot: ${name}`;
+  const list = document.getElementById('peopleList'); list.innerHTML='';
+
+  if (!arr.length) list.innerHTML = `<p class="empty">No one yet.</p>`;
+  else{
+    const table = document.createElement('table'); table.className='table';
+    table.innerHTML = `<thead><tr><th>#</th><th>Email</th><th>UID</th></tr></thead><tbody></tbody>`;
+    const tb = table.querySelector('tbody');
+    arr.forEach((u,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i+1}</td><td>${u.email||'-'}</td><td>${u.uid||'-'}</td>`;
+      tb.appendChild(tr);
+    });
+    list.appendChild(table);
+  }
+  document.getElementById('modalBackdrop').style.display='flex';
+}
+function closeModal(){ document.getElementById('modalBackdrop').style.display='none'; }
+</script>
+</body>
+</html>
