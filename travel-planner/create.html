@@ -1,48 +1,72 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Create Spot</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Spot • Travel Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+  <script src="firebase.js"></script>
 </head>
 <body>
-  <header class="site-header"><div class="brand">✈️ Travel Planner</div></header>
+  <div class="navbar">
+    <div class="brand">Create Spot</div>
+    <div class="nav-actions">
+      <button onclick="location.href='index.html'">Home</button>
+      <button onclick="signOutGo()">Logout</button>
+    </div>
+  </div>
 
-  <main style="padding:22px;max-width:900px;margin:0 auto;">
-    <h2>Create a Spot</h2>
-    <form id="create-form" style="display:grid;gap:10px;max-width:600px;">
-      <input id="title" placeholder="Title" required/>
-      <textarea id="description" placeholder="Short description"></textarea>
-      <input id="imageUrl" placeholder="Image URL (recommended)" />
-      <input id="departureDate" type="date" />
-      <button type="submit" class="side-btn" style="width:auto;padding:10px 14px;border-radius:8px;">Create</button>
+  <div class="container">
+    <h2>Add a new destination</h2>
+    <form class="form" id="spotForm">
+      <input type="text" id="name" placeholder="Spot Name" required>
+      <input type="number" id="cost" placeholder="Cost (₹)" required>
+      <input type="number" id="people" placeholder="People Required" required>
+      <textarea id="points" placeholder="Points to visit (comma separated)" required></textarea>
+      <label>Start Date</label>
+      <input type="date" id="startDate" required>
+      <label>End Date</label>
+      <input type="date" id="endDate" required>
+      <input type="text" id="transport" placeholder="Mode of Transport (e.g., Train, Flight, Car)" required>
+      <label>Image</label>
+      <input type="file" id="imageFile" accept="image/*" required>
+      <button class="primary-btn" type="submit">Save Spot</button>
     </form>
-    <div id="create-msg" style="margin-top:12px;color:var(--muted)"></div>
-  </main>
+  </div>
 
-  <script src="firebase.js"></script>
-  <script src="app.js"></script>
-  <script>
-    const form = document.getElementById('create-form');
-    const msg = document.getElementById('create-msg');
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const payload = {
-        title: document.getElementById('title').value,
-        description: document.getElementById('description').value,
-        imageUrl: document.getElementById('imageUrl').value,
-        departureDate: document.getElementById('departureDate').value ? firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('departureDate').value)) : firebase.firestore.Timestamp.now()
-      };
-      appCreateSpot(payload).then(() => {
-        msg.textContent = "Spot created!";
-        form.reset();
-      }).catch(err => { msg.textContent = "Error: "+err.message; });
+<script>
+let me=null;
+requireAuth().then(u=>me=u);
+
+document.getElementById('spotForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  try{
+    const file = imageFile.files[0];
+    const url = await uploadImageFile(file, `spots/${Date.now()}_${file.name}`);
+    const doc = await db.collection('spots').add({
+      name: nameEl.value.trim(),
+      cost: Number(cost.value),
+      people: Number(people.value),
+      points: points.value.trim(),
+      startDate: startDate.value,
+      endDate: endDate.value,
+      transport: transport.value.trim(),
+      imageURL: url,
+      createdBy: me.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  </script>
+    // prepare rollup doc
+    await db.collection('spots_interests').doc(doc.id).set({ spotId: doc.id, name: nameEl.value.trim() });
+    alert('Spot created!');
+    e.target.reset();
+  }catch(err){ alert(err.message); }
+});
+
+const nameEl = document.getElementById('name');
+</script>
 </body>
 </html>
