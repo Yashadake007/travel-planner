@@ -4,55 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Travel Planner</title>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Header -->
   <header>
     <h1>Travel Planner</h1>
-    <nav>
-      <button id="logout-btn" style="display:none;">Logout</button>
+    <nav id="authNav">
+      <button id="loginBtn">Login</button>
+      <button id="signupBtn">Sign Up</button>
+      <button id="logoutBtn" style="display:none;">Logout</button>
     </nav>
   </header>
 
+  <!-- Main Swipe Container -->
   <main>
-    <div id="card-container">
-      <!-- Swipe cards dynamically added here -->
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="button-panel">
-      <button id="btn-interested" title="Interested ❤️">❤️</button>
-      <button id="btn-not" title="Not Interested 💔">💔</button>
-      <button id="btn-skip" title="Skip ⏩">⏩</button>
-      <button id="btn-review" title="Review 🔄">🔄</button>
-    </div>
-
-    <!-- List Panel -->
-    <div class="list-panel">
-      <button id="open-interested">Interested List</button>
-      <button id="open-not">Not Interested List</button>
-      <button id="open-skipped">Skipped List</button>
+    <div class="swipe-container">
+      <div id="spotCard" class="card"></div>
+      <div class="vertical-btns">
+        <button id="interestedListBtn">❤️</button>
+        <button id="notInterestedListBtn">💔</button>
+        <button id="skippedListBtn">⏩</button>
+        <button id="reviewListBtn">🔄</button>
+      </div>
     </div>
   </main>
 
   <!-- Modals -->
-  <div id="list-modal" class="modal" style="display:none;">
+  <div id="listModal" class="modal">
     <div class="modal-content">
-      <span class="close-btn" id="close-modal">&times;</span>
-      <h2 id="list-title"></h2>
-      <ul id="list-content"></ul>
+      <span id="closeListModal" class="close">&times;</span>
+      <h2 id="listTitle"></h2>
+      <ul id="listContent"></ul>
     </div>
   </div>
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+  <!-- Config & App -->
   <script src="firebaseConfig.js"></script>
   <script src="app.js"></script>
-  <!-- your page-specific JS next, e.g.: -->
-  <script src="js/script.js"></script>
-
+  <script src="script.js"></script>
 </body>
 </html>
-
-
