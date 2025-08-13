@@ -1,99 +1,115 @@
-// Firebase init
-const app = firebase.initializeApp(firebaseConfig);
-const auth = firebase.getAuth(app);
-const db = firebase.getFirestore(app);
+// js/script.js — updated to use TravelAPI + compat firebase
 
-// DOM elements
-const cardContainer = document.getElementById('card-container');
-const btnInterested = document.getElementById('btn-interested');
-const btnNot = document.getElementById('btn-not');
-const btnSkip = document.getElementById('btn-skip');
-const btnReview = document.getElementById('btn-review');
-const openInterested = document.getElementById('open-interested');
-const openNot = document.getElementById('open-not');
-const openSkipped = document.getElementById('open-skipped');
-const listModal = document.getElementById('list-modal');
-const listTitle = document.getElementById('list-title');
-const listContent = document.getElementById('list-content');
-const closeModal = document.getElementById('close-modal');
-const logoutBtn = document.getElementById('logout-btn');
+document.addEventListener("DOMContentLoaded", async () => {
+  const cardsContainer = document.querySelector("#cardsContainer");
+  const modal = document.querySelector("#peopleModal");
+  const modalList = document.querySelector("#peopleList");
+  const modalTitle = document.querySelector("#modalTitle");
+  const modalClose = document.querySelector("#modalClose");
 
-let currentUser = null;
-let spots = [];
-let currentIndex = 0;
+  let spots = [];
+  let currentIndex = 0;
 
-// Load spots from Firestore
-async function loadSpots() {
-  const q = await firebase.getDocs(firebase.collection(db, 'spots'));
-  spots = q.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  renderCard();
-}
-
-function renderCard() {
-  cardContainer.innerHTML = '';
-  if (currentIndex >= spots.length) {
-    cardContainer.innerHTML = '<p>No more spots!</p>';
-    return;
-  }
-  const spot = spots[currentIndex];
-  const card = document.createElement('div');
-  card.className = 'spot-card';
-  card.innerHTML = `
-    <img src="${spot.image}" alt="${spot.name}" />
-    <h3>${spot.name}</h3>
-    <p>${spot.description}</p>
-  `;
-  cardContainer.appendChild(card);
-}
-
-async function saveChoice(spotId, choice) {
-  if (!currentUser) return;
-  await firebase.setDoc(firebase.doc(db, `users/${currentUser.uid}/choices`, spotId), { choice });
-}
-
-// Button handlers
-btnInterested.onclick = () => handleChoice('interested');
-btnNot.onclick = () => handleChoice('not');
-btnSkip.onclick = () => handleChoice('skipped');
-btnReview.onclick = () => handleChoice('review');
-
-function handleChoice(choice) {
-  saveChoice(spots[currentIndex].id, choice);
-  currentIndex++;
-  renderCard();
-}
-
-// List modals
-function openList(choice) {
-  if (!currentUser) return;
-  listTitle.textContent = choice.charAt(0).toUpperCase() + choice.slice(1) + " Spots";
-  listContent.innerHTML = '';
-  firebase.getDocs(firebase.collection(db, `users/${currentUser.uid}/choices`))
-    .then(snapshot => {
-      snapshot.forEach(doc => {
-        if (doc.data().choice === choice) {
-          const spot = spots.find(s => s.id === doc.id);
-          if (spot) {
-            const li = document.createElement('li');
-            li.textContent = spot.name;
-            listContent.appendChild(li);
-          }
-        }
+  // --- Modal helpers ---
+  function showModal(title, people) {
+    modalTitle.textContent = title;
+    modalList.innerHTML = "";
+    if (!people.length) {
+      modalList.innerHTML = `<li class="empty">No entries yet</li>`;
+    } else {
+      people.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = `${p.userId} — ${p.when ? formatWhen(p.when) : ""}`;
+        modalList.appendChild(li);
       });
-      listModal.style.display = 'block';
+    }
+    modal.classList.add("open");
+  }
+  modalClose.addEventListener("click", () => modal.classList.remove("open"));
+
+  // --- Render current card ---
+  function renderCard() {
+    cardsContainer.innerHTML = "";
+    if (!spots.length || currentIndex >= spots.length) {
+      cardsContainer.innerHTML = `<p class="empty">No more spots to show.</p>`;
+      return;
+    }
+
+    const spot = spots[currentIndex];
+    const card = document.createElement("div");
+    card.className = "spot-card";
+    card.innerHTML = `
+      <h2>${spot.name || "Unnamed spot"}</h2>
+      <img src="${spot.imageUrl || "placeholder.jpg"}" alt="${spot.name}" />
+      <p>${spot.description || ""}</p>
+      <div class="actions">
+        <button id="btnInterested">Interested</button>
+        <button id="btnNotInterested">Not Interested</button>
+        <button id="btnSkip">Skip</button>
+      </div>
+      <div class="lists">
+        <button id="btnShowInterested">Show Interested</button>
+        <button id="btnShowNotInterested">Show Not Interested</button>
+        <button id="btnShowSkipped">Show Skipped</button>
+      </div>
+    `;
+    cardsContainer.appendChild(card);
+
+    // Bind buttons for this card
+    card.querySelector("#btnInterested").addEventListener("click", () => handleChoice("interested"));
+    card.querySelector("#btnNotInterested").addEventListener("click", () => handleChoice("not_interested"));
+    card.querySelector("#btnSkip").addEventListener("click", () => handleChoice("skipped"));
+
+    card.querySelector("#btnShowInterested").addEventListener("click", () => handleShowList("interested"));
+    card.querySelector("#btnShowNotInterested").addEventListener("click", () => handleShowList("not_interested"));
+    card.querySelector("#btnShowSkipped").addEventListener("click", () => handleShowList("skipped"));
+  }
+
+  // --- Handle a choice ---
+  async function handleChoice(choice) {
+    try {
+      await TravelAPI.saveChoice(spots[currentIndex].id, choice);
+      currentIndex++;
+      renderCard();
+    } catch (e) {
+      alert("Error saving choice: " + e.message);
+      console.error(e);
+    }
+  }
+
+  // --- Handle show list for current spot ---
+  async function handleShowList(choice) {
+    try {
+      const people = await TravelAPI.getPeopleForSpot(spots[currentIndex].id, choice);
+      showModal(`People who are ${choice.replace("_", " ")}`, people);
+    } catch (e) {
+      alert("Error loading list: " + e.message);
+      console.error(e);
+    }
+  }
+
+  // --- Initial load ---
+  async function init() {
+    try {
+      spots = await TravelAPI.getSpots();
+      currentIndex = 0;
+      renderCard();
+    } catch (e) {
+      cardsContainer.innerHTML = `<p class="error">Failed to load spots: ${e.message}</p>`;
+      console.error(e);
+    }
+  }
+
+  // Run init after auth is ready
+  if (window.currentUser) {
+    init();
+  } else {
+    document.addEventListener("auth:changed", e => {
+      if (e.detail.user) {
+        init();
+      } else {
+        cardsContainer.innerHTML = `<p class="empty">Please log in to view spots.</p>`;
+      }
     });
-}
-
-openInterested.onclick = () => openList('interested');
-openNot.onclick = () => openList('not');
-openSkipped.onclick = () => openList('skipped');
-closeModal.onclick = () => listModal.style.display = 'none';
-
-// Auth
-firebase.onAuthStateChanged(auth, user => {
-  currentUser = user;
-  logoutBtn.style.display = user ? 'inline-block' : 'none';
-  if (user) loadSpots();
+  }
 });
-
-logoutBtn.onclick = () => firebase.signOut(auth);
