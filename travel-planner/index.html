@@ -28,14 +28,17 @@
   <section class="cards-area">
     <div id="card-stack" class="card-stack" aria-live="polite"></div>
     <div id="empty-state" class="empty-state">No more spots — come back later!</div>
+    <!-- Card Container for Swipe -->
+    <div id="card-container" style="max-width:400px;margin:auto;"></div>
   </section>
 
   <!-- Right vertical actions -->
   <aside class="right-panel" aria-label="Actions">
-    <button id="btn-open-interested" class="side-btn" title="My Interested">❤️</button>
-    <button id="btn-open-not" class="side-btn" title="My Not Interested">💔</button>
-    <button id="btn-open-skipped" class="side-btn" title="My Skipped">⏩</button>
-    <button id="btn-review" class="side-btn" title="Rewind (Review)">🔄</button>
+    <button id="btn-like">❤️</button>
+    <button id="btn-dislike">💔</button>
+    <button id="btn-skip">⏩</button>
+    <button id="btn-review">🔄</button>
+
   </aside>
 </main>
 
@@ -61,3 +64,4 @@
 <script src="script.js"></script>
 </body>
 </html>
+
