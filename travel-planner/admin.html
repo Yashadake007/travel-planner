@@ -1,37 +1,69 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin — Travel Planner</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin • Travel Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="firebase.js"></script>
 </head>
 <body>
-  <header class="site-header"><div class="brand">Admin</div></header>
-  <main style="padding:22px;">
+  <div class="navbar">
+    <div class="brand">Admin Panel</div>
+    <div class="nav-actions">
+      <button onclick="location.href='create.html'">Create Spot</button>
+      <button onclick="location.href='index.html'">Home</button>
+      <button onclick="signOutGo()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
     <h2>All Spots</h2>
-    <div id="admin-spots"></div>
-    <h2 style="margin-top:24px">Recent Choices</h2>
-    <div id="admin-choices"></div>
-  </main>
+    <div id="list"></div>
+  </div>
 
-  <script src="firebase.js"></script>
-  <script src="app.js"></script>
-  <script>
-    appListSpots().then(spots => {
-      const el = document.getElementById('admin-spots');
-      if(!spots.length) el.innerHTML = '<p style="color:var(--muted)">No spots</p>';
-      else el.innerHTML = spots.map(s => `<div style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.03);margin-bottom:8px"><strong>${s.title}</strong><div style="font-size:13px;color:var(--muted)">${s.description||''}</div></div>`).join('');
-    });
+<script>
+let me=null;
+requireAuth().then(async u=>{
+  me=u;
+  // Soft admin check: require /admins/{uid} doc to exist
+  const adminDoc = await db.collection('admins').doc(me.uid).get();
+  if (!adminDoc.exists) { alert('Not an admin'); window.location.href='index.html'; return; }
+  load();
+});
 
-    appListChoices().then(choices => {
-      const el = document.getElementById('admin-choices');
-      if(!choices.length) el.innerHTML = '<p style="color:var(--muted)">No choices</p>';
-      else el.innerHTML = choices.map(c => `<div style="padding:8px;border-radius:8px;background:rgba(255,255,255,0.03);margin-bottom:8px"><strong>${c.choice}</strong> — ${c.spotId} — ${c.userId}</div>`).join('');
-    });
-  </script>
+async function load(){
+  const root = document.getElementById('list'); root.innerHTML='';
+  const snap = await db.collection('spots').orderBy('createdAt','desc').get();
+  if (snap.empty){ root.innerHTML='<p class="empty">No spots yet.</p>'; return; }
+
+  const table = document.createElement('table'); table.className='table';
+  table.innerHTML = `<thead><tr><th>#</th><th>Name</th><th>Cost</th><th>People</th><th>Actions</th></tr></thead><tbody></tbody>`;
+  const tb = table.querySelector('tbody');
+  let idx=1;
+  for (const d of snap.docs){
+    const s = { id:d.id, ...d.data() };
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${idx++}</td><td>${s.name||'-'}</td><td>${s.cost||'-'}</td><td>${s.people||'-'}</td>
+    <td>
+      <button class="primary-btn" onclick="editSpot('${s.id}')">Edit</button>
+      <button class="primary-btn" style="background:#b42318" onclick="delSpot('${s.id}')">Delete</button>
+    </td>`;
+    tb.appendChild(tr);
+  }
+  root.appendChild(table);
+}
+
+function editSpot(id){ alert('For brevity, inline edit not implemented. You can delete and recreate, or extend here.'); }
+async function delSpot(id){
+  if(!confirm('Delete this spot?')) return;
+  await db.collection('spots').doc(id).delete();
+  await db.collection('spots_interests').doc(id).delete().catch(()=>{});
+  load();
+}
+</script>
 </body>
 </html>
