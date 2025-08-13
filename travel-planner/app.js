@@ -1,297 +1,146 @@
-import {
-  auth, db, provider,
-  collection, doc, getDoc, getDocs, addDoc, setDoc,
-  query, where, orderBy, serverTimestamp, onSnapshot,
-  onAuthStateChanged, signInWithPopup, signOut
-} from "./firebase.js";
-
-/* ---------------- DOM ---------------- */
-const stackEl = document.getElementById("card-stack");
-const emptyEl = document.getElementById("empty-state");
-
-const btnLogin  = document.getElementById("btn-login");
-const btnLogout = document.getElementById("btn-logout");
-const btnAdmin  = document.getElementById("btn-admin");
-
-const btnLike   = document.getElementById("btn-like");
-const btnNope   = document.getElementById("btn-nope");
-const btnSkip   = document.getElementById("btn-skip");
-const btnReview = document.getElementById("btn-review");
-
-const openInterested = document.getElementById("open-interested");
-const openNot        = document.getElementById("open-not");
-const openSkipped    = document.getElementById("open-skipped");
-
-const listBack  = document.getElementById("list-backdrop");
-const listTitle = document.getElementById("list-title");
-const listBody  = document.getElementById("list-body");
-document.getElementById("list-close").onclick = ()=> listBack.style.display="none";
-
-const peopleBack  = document.getElementById("people-backdrop");
-const peopleTitle = document.getElementById("people-title");
-const peopleBody  = document.getElementById("people-body");
-document.getElementById("people-close").onclick = ()=> peopleBack.style.display="none";
-
-/* ---------------- State ---------------- */
-let user = null;
-let spots = [];
-let idx = 0;
-let historyIdx = [];
-
-/* ---------------- Helpers ---------------- */
-const esc = (s='') => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-/* ---------------- Auth ---------------- */
-btnLogin.onclick  = async ()=> { await signInWithPopup(auth, provider); };
-btnLogout.onclick = async ()=> { await signOut(auth); };
-btnAdmin.onclick  = ()=> alert("Admin screen is not included here. Use Create to add spots.");
-
-onAuthStateChanged(auth, async (u)=>{
-  user = u || null;
-  btnLogin.style.display  = user ? "none" : "";
-  btnLogout.style.display = user ? ""     : "none";
-  await loadSpots();
-  render();
-});
-
-/* ---------------- Data ---------------- */
-async function loadSpots(){
-  spots = []; idx=0; historyIdx=[];
-  // Prefer createdAt desc; fallback to name
-  try{
-    const q = query(collection(db,"spots"), orderBy("createdAt","desc"));
-    const snap = await getDocs(q);
-    if (!snap.empty){
-      spots = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      return;
-    }
-  }catch(_){}
-  try{
-    const q = query(collection(db,"spots"), orderBy("name"));
-    const snap = await getDocs(q);
-    spots = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-  }catch(e){
-    console.error("loadSpots error", e);
-  }
-}
-
-/* ---------------- UI: Card render + swipe ---------------- */
-function render(){
-  stackEl.innerHTML = "";
-  if (!spots.length || idx >= spots.length){
-    emptyEl.style.display = "block";
+// app.js  — compat bootstrap + shared helpers
+(function () {
+  // --- Guard: ensure compat SDKs are loaded ---
+  if (typeof firebase === "undefined" ||
+      !firebase.app && !firebase.initializeApp) {
+    console.error(
+      "[app.js] Firebase compat SDKs not found. " +
+      "Make sure you loaded:\n" +
+      "firebase-app-compat.js, firebase-auth-compat.js, firebase-firestore-compat.js"
+    );
     return;
   }
-  emptyEl.style.display = "none";
 
-  const s = spots[idx];
-  const img = s.imageURL || s.image || "";
-
-  const card = document.createElement("div");
-  card.className = "trip-card";
-  card.id = "active-card";
-  card.innerHTML = `
-    <div class="overlay like">❤️</div>
-    <div class="overlay dislike">💔</div>
-    <div class="overlay skip">⏩</div>
-    <div class="overlay review">🔄</div>
-
-    <img src="${esc(img)}" alt="${esc(s.name||'Spot')}" onerror="this.style.display='none'">
-    <div class="content">
-      <h3>${esc(s.name||"Untitled spot")}</h3>
-      <p><b>Cost:</b> ₹${esc(s.cost ?? "-")}</p>
-      <p><b>People:</b> ${esc(s.people ?? "-")}</p>
-      <p><b>Points:</b> ${esc(s.points || "-")}</p>
-      <p><b>Dates:</b> ${esc(s.startDate || "-")} → ${esc(s.endDate || "-")}</p>
-      <p><b>Transport:</b> ${esc(s.transport || "-")}</p>
-      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="pill" id="btn-spot-people-int">People ❤️</button>
-        <button class="pill" id="btn-spot-people-no">People 💔</button>
-        <button class="pill" id="btn-spot-people-skip">People ⏩</button>
-      </div>
-    </div>
-  `;
-  stackEl.appendChild(card);
-  attachSwipe(card);
-
-  document.getElementById("btn-spot-people-int").onclick = ()=> openPeopleForSpot("interested");
-  document.getElementById("btn-spot-people-no").onclick  = ()=> openPeopleForSpot("not_interested");
-  document.getElementById("btn-spot-people-skip").onclick= ()=> openPeopleForSpot("skipped");
-}
-
-function attachSwipe(card){
-  let sx=0, sy=0, dragging=false;
-  const oLike   = card.querySelector(".overlay.like");
-  const oNope   = card.querySelector(".overlay.dislike");
-  const oSkip   = card.querySelector(".overlay.skip");
-  const oReview = card.querySelector(".overlay.review");
-
-  const start = e => { dragging=true; sx=e.clientX??e.touches[0].clientX; sy=e.clientY??e.touches[0].clientY; card.classList.remove("snap-back"); };
-  const move  = e => {
-    if(!dragging) return;
-    const x=e.clientX??e.touches[0].clientX, y=e.clientY??e.touches[0].clientY;
-    const dx=x-sx, dy=y-sy;
-    card.style.transform = `translate(${dx}px,${dy}px) rotate(${dx/12}deg)`;
-    oLike.style.opacity   = dx>50 ? "1":"0";
-    oNope.style.opacity   = dx<-50? "1":"0";
-    oSkip.style.opacity   = dy<-50? "1":"0";
-    oReview.style.opacity = dy>50 ? "1":"0";
-  };
-  const end   = e => {
-    if(!dragging) return; dragging=false;
-    const x=e.clientX??e.changedTouches[0].clientX, y=e.clientY??e.changedTouches[0].clientY;
-    const dx=x-sx, dy=y-sy;
-    if (dx>110)  return doAction("interested", card);
-    if (dx<-110) return doAction("not_interested", card);
-    if (dy<-110) return doAction("skipped", card);
-    if (dy>110)  return doAction("review", card);
-
-    card.classList.add("snap-back");
-    card.style.transform = "";
-    oLike.style.opacity=oNope.style.opacity=oSkip.style.opacity=oReview.style.opacity="0";
-  };
-
-  card.addEventListener("pointerdown", start, {passive:true});
-  window.addEventListener("pointermove",  move,  {passive:true});
-  window.addEventListener("pointerup",    end,   {passive:true});
-}
-
-async function doAction(kind, card){
-  const s = spots[idx];
-  if (kind==="interested") card.classList.add("exit-right");
-  if (kind==="not_interested") card.classList.add("exit-left");
-  if (kind==="skipped") card.classList.add("exit-up");
-  if (kind==="review") card.classList.add("exit-down");
-
-  // Persist choice (userChoices)
-  if (kind!=="review" && user && s?.id){
-    try{
-      await addDoc(collection(db,"userChoices"), {
-        userId: user.uid,
-        spotId: s.id,
-        choice: kind,
-        timestamp: serverTimestamp()
-      });
-    }catch(e){ console.error("save choice failed", e); }
+  // --- Initialize Firebase once ---
+  try {
+    if (firebase.apps.length === 0) {
+      firebase.initializeApp(window.firebaseConfig);
+    }
+  } catch (e) {
+    console.warn("[app.js] initializeApp warning:", e);
   }
 
-  const after=()=>{
-    if (kind==="review"){
-      if (historyIdx.length>0) idx = Math.max(0, historyIdx.pop());
-      else idx = Math.max(0, idx-1);
-    } else {
-      historyIdx.push(idx);
-      idx = Math.min(spots.length, idx+1);
+  // --- Globals for convenience (minimize changes in your other files) ---
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+  window.auth = auth;
+  window.db   = db;
+
+  // current user mirror for easy access
+  window.currentUser = null;
+  auth.onAuthStateChanged(u => {
+    window.currentUser = u || null;
+    // You can optionally broadcast a custom event for pages to react to:
+    document.dispatchEvent(new CustomEvent("auth:changed", { detail: { user: u || null } }));
+  });
+
+  // ---- TravelAPI: minimal helpers shared across pages ----
+  const TravelAPI = {
+    /**
+     * Load spots ordered by createdAt desc, fallback to name
+     * Returns [{id, ...data}]
+     */
+    async getSpots() {
+      try {
+        // Try createdAt first
+        let snap;
+        try {
+          snap = await db.collection("spots").orderBy("createdAt", "desc").get();
+        } catch (_) {
+          snap = await db.collection("spots").orderBy("name").get();
+        }
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+        console.error("[TravelAPI.getSpots] error:", e);
+        return [];
+      }
+    },
+
+    /**
+     * Save a choice for the current user
+     * choice = 'interested' | 'not_interested' | 'skipped'
+     * Writes a new doc to userChoices
+     */
+    async saveChoice(spotId, choice) {
+      const u = auth.currentUser;
+      if (!u) throw new Error("Not authenticated");
+      if (!spotId) throw new Error("Missing spotId");
+      if (!["interested", "not_interested", "skipped"].includes(choice)) {
+        throw new Error("Invalid choice");
+      }
+      const payload = {
+        userId: u.uid,
+        spotId,
+        choice,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      await db.collection("userChoices").add(payload);
+      return true;
+    },
+
+    /**
+     * Load the current user's list for a given choice
+     * Returns array of full spot docs (merged)
+     */
+    async getUserList(choice) {
+      const u = auth.currentUser;
+      if (!u) throw new Error("Not authenticated");
+
+      // Get choice docs
+      const q = await db.collection("userChoices")
+        .where("userId", "==", u.uid)
+        .where("choice", "==", choice)
+        .orderBy("timestamp", "desc")
+        .get();
+
+      if (q.empty) return [];
+
+      // Fetch referenced spots
+      const spotGets = [];
+      q.forEach(doc => {
+        const { spotId } = doc.data() || {};
+        if (spotId) spotGets.push(db.collection("spots").doc(spotId).get());
+      });
+
+      const spotSnaps = await Promise.all(spotGets);
+      return spotSnaps
+        .filter(s => s && s.exists)
+        .map(s => ({ id: s.id, ...s.data() }));
+    },
+
+    /**
+     * People who chose a given spot (for modal on the current card)
+     * choice = 'interested' | 'not_interested' | 'skipped'
+     */
+    async getPeopleForSpot(spotId, choice) {
+      if (!spotId) return [];
+      const snap = await db.collection("userChoices")
+        .where("spotId", "==", spotId)
+        .where("choice", "==", choice)
+        .orderBy("timestamp", "desc")
+        .get();
+
+      if (snap.empty) return [];
+      const people = [];
+      snap.forEach(d => {
+        const x = d.data();
+        people.push({
+          userId: x.userId || "-",
+          when: x.timestamp ? x.timestamp.toDate?.() : null
+        });
+      });
+      return people;
     }
-    render();
   };
-  let done=false;
-  card.addEventListener("transitionend", ()=>{ if(!done){done=true;after();} }, {once:true});
-  setTimeout(()=>{ if(!done){done=true;after();} }, 280);
-}
 
-/* --------------- Lists (live) --------------- */
-openInterested.onclick = ()=> openList("interested");
-openNot.onclick        = ()=> openList("not_interested");
-openSkipped.onclick    = ()=> openList("skipped");
+  // expose
+  window.TravelAPI = TravelAPI;
 
-function openList(choice){
-  if (!user){ alert("Please login first."); return; }
-  listBack.style.display="flex";
-  listTitle.textContent =
-    choice==="interested" ? "My Interested Spots" :
-    choice==="not_interested" ? "My Not Interested Spots" :
-    "My Skipped Spots";
-  listBody.textContent="Loading…";
+  // ---- Optional: tiny utility for formatted date ----
+  window.formatWhen = function (dt) {
+    if (!dt) return "";
+    try { return dt.toLocaleString(); } catch { return ""; }
+  };
 
-  const qChoices = query(
-    collection(db,"userChoices"),
-    where("userId","==", user.uid),
-    where("choice","==", choice),
-    orderBy("timestamp","desc")
-  );
-
-  onSnapshot(qChoices, async snap=>{
-    if (snap.empty){ listBody.innerHTML = `<p class="muted">Nothing here yet.</p>`; return; }
-
-    const gets = [];
-    snap.forEach(d=> { const x=d.data(); if (x.spotId) gets.push(getDoc(doc(db,"spots",x.spotId))); });
-    const results = await Promise.all(gets);
-    const items = results.filter(r=>r.exists()).map(r=>({ id:r.id, ...r.data() }));
-
-    const wrap = document.createElement("div");
-    wrap.className="list-grid";
-    items.forEach(s=>{
-      const div=document.createElement("div");
-      div.className="list-item";
-      const img = esc(s.imageURL||s.image||"");
-      div.innerHTML = `
-        <div style="display:flex;gap:10px;align-items:center">
-          <img src="${img}" alt="" style="width:68px;height:52px;object-fit:cover;border-radius:8px;background:#0b1220" onerror="this.style.display='none'">
-          <div>
-            <div><strong>${esc(s.name||"Untitled")}</strong></div>
-            <div class="muted" style="font-size:12px">${esc(s.points||"")}</div>
-          </div>
-        </div>`;
-      wrap.appendChild(div);
-    });
-    listBody.innerHTML=""; listBody.appendChild(wrap);
-  }, err=>{
-    console.error(err);
-    listBody.innerHTML = `<p class="muted">Error loading list.</p>`;
-  });
-}
-
-/* --------------- People for current spot --------------- */
-function openPeopleForSpot(kind){
-  if (idx>=spots.length) return;
-  const s = spots[idx]; if (!s?.id) return;
-
-  peopleBack.style.display="flex";
-  peopleTitle.textContent =
-    kind==="interested" ? `People Interested in ${s.name||""}` :
-    kind==="not_interested" ? `People Not Interested in ${s.name||""}` :
-    `People who Skipped ${s.name||""}`;
-  peopleBody.textContent="Loading…";
-
-  const qPeople = query(
-    collection(db,"userChoices"),
-    where("spotId","==", s.id),
-    where("choice","==", kind),
-    orderBy("timestamp","desc")
-  );
-
-  onSnapshot(qPeople, snap=>{
-    if (snap.empty){ peopleBody.innerHTML = `<p class="muted">No entries yet.</p>`; return; }
-    const list = document.createElement("div"); list.className="list-grid";
-    let i=0;
-    snap.forEach(doc=>{
-      const x=doc.data();
-      const row=document.createElement("div");
-      row.className="list-item";
-      row.innerHTML = `
-        <div><strong>#${++i}</strong></div>
-        <div class="muted" style="font-size:13px">UID: ${esc(x.userId||"-")}</div>`;
-      list.appendChild(row);
-    });
-    peopleBody.innerHTML=""; peopleBody.appendChild(list);
-  }, err=>{
-    console.error(err);
-    peopleBody.innerHTML = `<p class="muted">Error loading.</p>`;
-  });
-}
-
-/* --------------- Buttons + keys --------------- */
-btnLike.onclick   = ()=> { const c=document.getElementById("active-card"); if(c) doAction("interested", c); };
-btnNope.onclick   = ()=> { const c=document.getElementById("active-card"); if(c) doAction("not_interested", c); };
-btnSkip.onclick   = ()=> { const c=document.getElementById("active-card"); if(c) doAction("skipped", c); };
-btnReview.onclick = ()=> { const c=document.getElementById("active-card"); if(c) doAction("review", c); };
-
-window.addEventListener("keydown", (e)=>{
-  const c=document.getElementById("active-card");
-  if(!c) return;
-  if (e.key==="ArrowRight") doAction("interested", c);
-  if (e.key==="ArrowLeft")  doAction("not_interested", c);
-  if (e.key==="ArrowUp")    doAction("skipped", c);
-  if (e.key==="ArrowDown")  doAction("review", c);
-});
+  console.log("[app.js] Firebase initialized (compat).");
+})();
