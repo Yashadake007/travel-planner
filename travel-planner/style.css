@@ -1,10 +1,9 @@
-/* ====== Base ====== */
 :root{
   --bg-1:#071024;
   --bg-2:#0f1724;
   --muted:#9aa4b2;
-  --panel:rgba(255,255,255,0.04);
-  --accent:#ff3b6b;
+  --panel:rgba(255,255,255,0.06);
+  --danger:#ff3b6b;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -15,43 +14,40 @@ body{
   color:#e6eef8;
 }
 
-/* ====== Header ====== */
 .site-header{
   display:flex;justify-content:space-between;align-items:center;
   padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.05)
 }
 .brand{font-weight:800}
+.header-actions{display:flex;gap:8px;align-items:center}
 .ghost-btn{
-  background:transparent;border:1px solid rgba(255,255,255,0.06);
-  color:#d9e2ef;padding:8px 12px;border-radius:10px;margin-left:8px;cursor:pointer
+  background:transparent;border:1px solid rgba(255,255,255,0.12);
+  color:#d9e2ef;padding:8px 12px;border-radius:10px;cursor:pointer;text-decoration:none
 }
-.ghost-btn.danger{border-color:rgba(255,59,107,.4);color:#fff}
+.ghost-btn.danger{border-color:rgba(255,59,107,.5);color:#fff}
 
-/* ====== Layout ====== */
 .main{
   display:flex;gap:18px;padding:20px;align-items:flex-start;
   min-height:calc(100vh - 64px)
 }
 .cards-area{flex:1;display:flex;justify-content:center;align-items:center;position:relative;min-height:60vh}
-.card-stack{width:360px;max-width:90vw;height:560px;position:relative}
+.card-stack{width:360px;max-width:92vw;height:560px;position:relative}
 
-/* ====== Card ====== */
 .trip-card{
   position:absolute;inset:0;border-radius:16px;overflow:hidden;
-  background:linear-gradient(180deg,#fff,#f4f7fb);
+  background:linear-gradient(180deg,#ffffff,#f4f7fb);
   box-shadow:0 20px 40px rgba(2,6,23,.6);
   display:flex;flex-direction:column;
-  user-select:none;touch-action:none; /* enables pointer events */
+  user-select:none;touch-action:none;
   transition:transform 260ms ease, opacity 220ms ease;
 }
-.trip-card img{width:100%;height:60%;object-fit:cover;display:block}
+.trip-card img{width:100%;height:60%;object-fit:cover;display:block;background:#0b1220}
 .trip-card .content{padding:14px 14px 18px;color:#0b1220}
 .trip-card .content h3{margin:0 0 6px 0}
 
-/* overlay icons on the card */
 .trip-card .overlay{
   position:absolute;top:10px;padding:6px 10px;border-radius:999px;
-  background:rgba(255,255,255,.6);backdrop-filter:blur(3px);
+  background:rgba(255,255,255,.7);backdrop-filter:blur(3px);
   font-size:20px;opacity:0;transition:opacity 140ms ease
 }
 .trip-card .overlay.like{left:10px}
@@ -59,14 +55,12 @@ body{
 .trip-card .overlay.skip{left:50%;transform:translateX(-50%)}
 .trip-card .overlay.review{left:50%;top:auto;bottom:10px;transform:translateX(-50%)}
 
-/* reset + exit animations */
 .snap-back{transition:transform 260ms ease}
 .exit-right{transform:translateX(520px) rotate(18deg)!important;opacity:0}
 .exit-left{transform:translateX(-520px) rotate(-18deg)!important;opacity:0}
 .exit-up{transform:translateY(-520px)!important;opacity:0}
 .exit-down{transform:translateY(520px)!important;opacity:0}
 
-/* ====== Right panel ====== */
 .right-panel{width:84px;display:flex;flex-direction:column;gap:12px;align-items:center}
 .side-btn{
   width:56px;height:56px;border-radius:14px;border:0;
@@ -75,9 +69,7 @@ body{
   box-shadow:0 6px 18px rgba(2,6,23,.6);transition:transform 140ms ease
 }
 .side-btn:hover{transform:translateY(-4px)}
-.side-btn.logout{background:linear-gradient(90deg,#ff7a7a,#ff3b6b)}
 
-/* ====== Modal ====== */
 .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.6);backdrop-filter:blur(2px);z-index:50}
 .modal.hidden{display:none}
 .modal-content{
@@ -87,12 +79,10 @@ body{
 .modal-close{float:right;border:0;background:transparent;color:var(--muted);cursor:pointer}
 .modal-body{margin-top:12px}
 .list-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px,1fr));gap:12px}
-.list-item{background:rgba(255,255,255,.04);padding:10px;border-radius:10px}
+.list-item{background:rgba(255,255,255,.06);padding:10px;border-radius:10px}
 
-/* ====== Empty ====== */
 .empty-state{display:none;color:var(--muted);font-size:14px;margin-top:12px;text-align:center}
 
-/* ====== Responsive ====== */
 @media (max-width:700px){
   .main{padding:12px}
   .right-panel{position:fixed;right:12px;top:28vh}
