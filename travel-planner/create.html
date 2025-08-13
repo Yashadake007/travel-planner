@@ -1,72 +1,59 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Spot • Travel Planner</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Create Spot</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <link rel="stylesheet" href="style.css">
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-  <script src="firebase.js"></script>
 </head>
-<body>
-  <div class="navbar">
-    <div class="brand">Create Spot</div>
-    <div class="nav-actions">
-      <button onclick="location.href='index.html'">Home</button>
-      <button onclick="signOutGo()">Logout</button>
-    </div>
-  </div>
+<body style="padding:20px">
+  <h2>Create Spot</h2>
+  <p style="color:#9aa4b2">You must be logged in.</p>
+  <form id="form">
+    <input id="name" placeholder="Name" required style="padding:8px;width:340px"><br><br>
+    <input id="city" placeholder="City" style="padding:8px;width:340px"><br><br>
+    <input id="image" placeholder="Image URL" style="padding:8px;width:340px"><br><br>
+    <input id="cost" placeholder="Cost" style="padding:8px;width:340px"><br><br>
+    <input id="people" placeholder="People" style="padding:8px;width:340px"><br><br>
+    <input id="points" placeholder="Points" style="padding:8px;width:340px"><br><br>
+    <input id="startDate" placeholder="Start Date (text)" style="padding:8px;width:340px"><br><br>
+    <input id="endDate" placeholder="End Date (text)" style="padding:8px;width:340px"><br><br>
+    <input id="transport" placeholder="Transport" style="padding:8px;width:340px"><br><br>
+    <button class="ghost-btn">Add</button>
+  </form>
+  <p><a class="ghost-btn" href="index.html">Back to swipe</a></p>
 
-  <div class="container">
-    <h2>Add a new destination</h2>
-    <form class="form" id="spotForm">
-      <input type="text" id="name" placeholder="Spot Name" required>
-      <input type="number" id="cost" placeholder="Cost (₹)" required>
-      <input type="number" id="people" placeholder="People Required" required>
-      <textarea id="points" placeholder="Points to visit (comma separated)" required></textarea>
-      <label>Start Date</label>
-      <input type="date" id="startDate" required>
-      <label>End Date</label>
-      <input type="date" id="endDate" required>
-      <input type="text" id="transport" placeholder="Mode of Transport (e.g., Train, Flight, Car)" required>
-      <label>Image</label>
-      <input type="file" id="imageFile" accept="image/*" required>
-      <button class="primary-btn" type="submit">Save Spot</button>
-    </form>
-  </div>
-
-<script>
-let me=null;
-requireAuth().then(u=>me=u);
-
-document.getElementById('spotForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  try{
-    const file = imageFile.files[0];
-    const url = await uploadImageFile(file, `spots/${Date.now()}_${file.name}`);
-    const doc = await db.collection('spots').add({
-      name: nameEl.value.trim(),
-      cost: Number(cost.value),
-      people: Number(people.value),
-      points: points.value.trim(),
-      startDate: startDate.value,
-      endDate: endDate.value,
-      transport: transport.value.trim(),
-      imageURL: url,
-      createdBy: me.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  <script src="firebase.js"></script>
+  <script>
+    let me=null;
+    firebase.auth().onAuthStateChanged(u=>{
+      me=u;
+      if(!u){ alert('Please login first.'); location.href='login.html'; }
     });
-    // prepare rollup doc
-    await db.collection('spots_interests').doc(doc.id).set({ spotId: doc.id, name: nameEl.value.trim() });
-    alert('Spot created!');
-    e.target.reset();
-  }catch(err){ alert(err.message); }
-});
-
-const nameEl = document.getElementById('name');
-</script>
+    const form=document.getElementById('form');
+    form.addEventListener('submit', async e=>{
+      e.preventDefault();
+      if(!me){ alert('Login required.'); return; }
+      const doc={
+        name:document.getElementById('name').value.trim(),
+        city:document.getElementById('city').value.trim(),
+        image:document.getElementById('image').value.trim(),
+        cost:document.getElementById('cost').value.trim(),
+        people:document.getElementById('people').value.trim(),
+        points:document.getElementById('points').value.trim(),
+        startDate:document.getElementById('startDate').value.trim(),
+        endDate:document.getElementById('endDate').value.trim(),
+        transport:document.getElementById('transport').value.trim(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      try{
+        await firebase.firestore().collection('spots').add(doc);
+        alert('Spot added.'); location.href='index.html';
+      }catch(err){ alert(err.message); }
+    });
+  </script>
 </body>
 </html>
