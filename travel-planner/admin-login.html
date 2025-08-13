@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login • Travel Planner</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="firebase.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Admin Sign In</h2>
+    <form class="form" id="f">
+      <input type="email" id="email" placeholder="Admin email" required>
+      <input type="password" id="pass" placeholder="Password" required>
+      <button class="primary-btn" type="submit">Login</button>
+      <div>Not admin? <a href="login.html">User Login</a></div>
+    </form>
+  </div>
+
+<script>
+// You may store admin UIDs in Firestore (/admins/{uid}) and enforce in security rules
+document.getElementById('f').addEventListener('submit', async e=>{
+  e.preventDefault();
+  try{
+    await auth.signInWithEmailAndPassword(email.value, pass.value);
+    window.location.href = 'admin.html';
+  }catch(err){ alert(err.message); }
+});
+</script>
+</body>
+</html>
