@@ -1,57 +1,212 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Travel Planner — Swipe</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Travel Planner</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet"/>
 
-  <!-- Firebase v8 libs -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
-
-  <link rel="stylesheet" href="style.css" />
+  <!-- Firebase v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+  <script src="firebase.js"></script>
 </head>
 <body>
-  <header class="site-header">
-    <div class="brand">✈️ Travel Planner</div>
-    <div class="header-actions">
-      <button id="top-login" class="ghost-btn">Login</button>
-      <button id="top-signup" class="ghost-btn">Sign up</button>
+
+  <div class="navbar">
+    <div class="brand">🌍 Travel Planner</div>
+    <div class="nav-actions">
+      <button onclick="location.href='mytrips.html'">My Lists</button>
+      <button onclick="location.href='create.html'">Create Spot</button>
+      <button onclick="signOutGo()">Logout</button>
     </div>
-  </header>
+  </div>
 
   <main class="main">
-    <section class="cards-area">
-      <div id="card-stack" class="card-stack" aria-live="polite"></div>
-      <div id="empty-state" class="empty-state">No more spots — come back later!</div>
+    <section class="card-wrap">
+      <div id="stack"></div>
     </section>
 
-    <aside class="right-panel" aria-label="actions">
-      <button id="btn-interested" class="side-btn" title="My Interested">❤️</button>
-      <button id="btn-not" class="side-btn" title="My Not Interested">💔</button>
-      <button id="btn-skip" class="side-btn" title="My Skipped">⏩</button>
-      <button id="btn-review" class="side-btn" title="My Review Later">🔄</button>
-      <button id="btn-logout" class="side-btn logout" title="Logout">🚪</button>
+    <aside class="panel">
+      <button class="success" onclick="openPeopleList('interested')">❤️ Who’s Interested</button>
+      <button class="danger" onclick="openPeopleList('notInterested')">💔 Who’s Not</button>
+      <button class="warning" onclick="openPeopleList('skipped')">⏫ Who Skipped</button>
+      <button onclick="location.href='admin.html'">🛠️ Admin</button>
     </aside>
   </main>
 
-  <!-- Modal -->
-  <div id="list-modal" class="modal hidden" role="dialog" aria-hidden="true">
-    <div class="modal-content">
-      <button class="modal-close" id="modal-close" aria-label="Close">✖</button>
-      <h2 id="modal-title">List</h2>
-      <div id="modal-body" class="modal-body"></div>
+  <!-- Modal: people list for current spot -->
+  <div id="modalBackdrop" class="modal-backdrop">
+    <div class="modal">
+      <header>
+        <span id="modalTitle">People</span>
+        <button class="close" onclick="closeModal()">✕</button>
+      </header>
+      <div class="body">
+        <div id="modalSpotName" style="font-weight:700; margin-bottom:8px;"></div>
+        <div id="peopleList"></div>
+      </div>
     </div>
   </div>
 
-  <!-- overlay -->
-  <div id="swipe-overlay" class="swipe-overlay hidden" aria-hidden="true">
-    <span id="overlay-icon" class="overlay-icon"></span>
-  </div>
+<script>
+let user, spots = [], i = 0, hist = [];
 
-  <script src="firebase.js"></script>
-  <script src="script.js"></script>
+requireAuth().then(async (u) => {
+  user = u;
+  await loadSpots();
+  render();
+});
+
+async function loadSpots(){
+  const snap = await db.collection('spots').orderBy('name').get();
+  spots = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+function render(){
+  const stack = document.getElementById('stack');
+  stack.innerHTML = '';
+  if (i >= spots.length) {
+    stack.innerHTML = `<div class="container"><h2>All caught up 🎉</h2><p class="empty">No more trips. Add more from Create Spot.</p></div>`;
+    return;
+  }
+  const s = spots[i];
+  const card = document.createElement('div');
+  card.className = 'card'; card.id = 'active-card';
+  card.innerHTML = `
+    <div class="overlay like"   id="ov-like">❤️</div>
+    <div class="overlay dislike" id="ov-dislike">💔</div>
+    <div class="overlay skip"    id="ov-skip">⏫</div>
+    <div class="overlay review"  id="ov-review">🔄</div>
+
+    <img src="${s.imageURL || 'https://picsum.photos/800/500'}" alt="${s.name}">
+    <div class="content">
+      <h3>${s.name}</h3>
+      <p><b>Cost:</b> ₹${s.cost}</p>
+      <p><b>People:</b> ${s.people}</p>
+      <p><b>Points:</b> ${s.points}</p>
+      <p><b>Dates:</b> ${s.startDate} → ${s.endDate}</p>
+      <p><b>Transport:</b> ${s.transport}</p>
+    </div>
+  `;
+  stack.appendChild(card);
+  hookGestures(card);
+}
+
+function hookGestures(card){
+  let sx=0, sy=0, drag=false;
+  const start=(x,y)=>{sx=x; sy=y; drag=true;};
+  const move=(x,y)=>{
+    if(!drag) return;
+    const dx=x-sx, dy=y-sy;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/12}deg)`;
+    toggle('ov-like', dx>40);
+    toggle('ov-dislike', dx<-40);
+    toggle('ov-skip', dy<-40);
+    toggle('ov-review', dy>40);
+  };
+  const end=(x,y)=>{
+    if(!drag) return; drag=false;
+    const dx=x-sx, dy=y-sy;
+    if (dx>100)   return doAction('interested');
+    if (dx<-100)  return doAction('notInterested');
+    if (dy<-110)  return doAction('skipped');
+    if (dy>110)   return doAction('review');
+    card.style.transform = `translate(0,0)`;
+    ['ov-like','ov-dislike','ov-skip','ov-review'].forEach(id=>toggle(id,false));
+  };
+
+  // touch
+  card.addEventListener('touchstart',e=>start(e.touches[0].clientX,e.touches[0].clientY),{passive:true});
+  card.addEventListener('touchmove', e=>move(e.touches[0].clientX,e.touches[0].clientY),{passive:true});
+  card.addEventListener('touchend',  e=>end(e.changedTouches[0].clientX,e.changedTouches[0].clientY));
+  // mouse
+  card.addEventListener('mousedown', e=>start(e.clientX,e.clientY));
+  window.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
+  window.addEventListener('mouseup',   e=>end(e.clientX,e.clientY));
+}
+
+function toggle(id,show){ const el=document.getElementById(id); if(!el) return; el.classList.toggle('show', !!show); }
+
+async function doAction(kind){
+  const s = spots[i];
+  const card = document.getElementById('active-card');
+  if (kind==='interested')     card.style.transform='translate(220px,0) rotate(18deg)';
+  if (kind==='notInterested')  card.style.transform='translate(-220px,0) rotate(-18deg)';
+  if (kind==='skipped')        card.style.transform='translate(0,-220px)';
+  if (kind==='review')         card.style.transform='translate(0,220px)';
+
+  await writeInterest(kind, s);
+
+  if (kind!=='review') hist.push(i);
+  if (kind==='review' && hist.length) i = Math.max(0, hist.pop());
+  else i += 1;
+
+  setTimeout(render, 200);
+}
+
+async function writeInterest(kind, spot){
+  const spotId = spot.id;
+  const rollup = db.collection('spots_interests').doc(spotId);
+  const who = { uid:user.uid, email:user.email||'', at: firebase.firestore.FieldValue.serverTimestamp() };
+
+  await rollup.set({ spotId, name: spot.name||'' }, { merge:true });
+
+  if (kind==='interested'){
+    await rollup.update({ interestedUsers: firebase.firestore.FieldValue.arrayUnion(who) });
+    await db.collection('users').doc(user.uid).collection('interested').doc(spotId).set({
+      spotId, name: spot.name, imageURL: spot.imageURL||'', at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  if (kind==='notInterested'){
+    await rollup.update({ notInterestedUsers: firebase.firestore.FieldValue.arrayUnion(who) });
+    await db.collection('users').doc(user.uid).collection('notInterested').doc(spotId).set({
+      spotId, name: spot.name, at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  if (kind==='skipped'){
+    await rollup.update({ skippedUsers: firebase.firestore.FieldValue.arrayUnion(who) });
+    await db.collection('users').doc(user.uid).collection('skipped').doc(spotId).set({
+      spotId, name: spot.name, at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+}
+
+// People modal for current spot
+async function openPeopleList(kind){
+  if (i>=spots.length) return;
+  const s = spots[i];
+  const doc = await db.collection('spots_interests').doc(s.id).get();
+  const data = doc.exists ? doc.data() : {};
+  const arr = (kind==='interested') ? (data.interestedUsers||[])
+            : (kind==='notInterested') ? (data.notInterestedUsers||[])
+            : (data.skippedUsers||[]);
+  document.getElementById('modalTitle').textContent =
+    (kind==='interested'?'People Interested in ':
+     kind==='notInterested'?'People Not Interested in ':'People who Skipped ') + (s.name||'');
+  document.getElementById('modalSpotName').textContent = `Spot: ${s.name}`;
+  const list = document.getElementById('peopleList');
+  list.innerHTML = '';
+  if (!arr.length) {
+    list.innerHTML = `<p class="empty">No entries yet.</p>`;
+  } else {
+    const table = document.createElement('table');
+    table.className = 'table';
+    table.innerHTML = `<thead><tr><th>#</th><th>Email</th><th>UID</th></tr></thead><tbody></tbody>`;
+    const tb = table.querySelector('tbody');
+    arr.forEach((u, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${idx+1}</td><td>${u.email||'-'}</td><td>${u.uid||'-'}</td>`;
+      tb.appendChild(tr);
+    });
+    list.appendChild(table);
+  }
+  document.getElementById('modalBackdrop').style.display='flex';
+}
+function closeModal(){ document.getElementById('modalBackdrop').style.display='none'; }
+</script>
 </body>
 </html>
