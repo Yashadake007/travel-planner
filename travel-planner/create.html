@@ -1,59 +1,146 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Create Spot</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <style>
+    body{margin:0;background:#0b1220;color:#e6efff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:760px;margin:0 auto;padding:22px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .card{background:#0f1629;border:1px solid #203152;border-radius:16px;padding:16px}
+    label{display:block;font-size:12px;color:#9aa4b2;margin-bottom:6px}
+    input,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #253451;background:#0b1220;color:#e6efff}
+    textarea{min-height:82px;resize:vertical}
+    .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .pill{padding:8px 14px;border:1px solid #2b3a55;border-radius:999px;background:#0f1629;color:#d7e3ff;cursor:pointer}
+    .pill:hover{background:#141d35}
+    .muted{color:#9aa4b2}
+  </style>
 </head>
-<body style="padding:20px">
-  <h2>Create Spot</h2>
-  <p style="color:#9aa4b2">You must be logged in.</p>
-  <form id="form">
-    <input id="name" placeholder="Name" required style="padding:8px;width:340px"><br><br>
-    <input id="city" placeholder="City" style="padding:8px;width:340px"><br><br>
-    <input id="image" placeholder="Image URL" style="padding:8px;width:340px"><br><br>
-    <input id="cost" placeholder="Cost" style="padding:8px;width:340px"><br><br>
-    <input id="people" placeholder="People" style="padding:8px;width:340px"><br><br>
-    <input id="points" placeholder="Points" style="padding:8px;width:340px"><br><br>
-    <input id="startDate" placeholder="Start Date (text)" style="padding:8px;width:340px"><br><br>
-    <input id="endDate" placeholder="End Date (text)" style="padding:8px;width:340px"><br><br>
-    <input id="transport" placeholder="Transport" style="padding:8px;width:340px"><br><br>
-    <button class="ghost-btn">Add</button>
-  </form>
-  <p><a class="ghost-btn" href="index.html">Back to swipe</a></p>
+<body>
+  <div class="wrap">
+    <div class="bar">
+      <div><strong>Create Spot</strong></div>
+      <div style="display:flex;gap:8px">
+        <a class="pill" href="./index.html">Back to swipe</a>
+        <button class="pill" id="btn-login">Login</button>
+        <button class="pill" id="btn-logout" style="display:none">Logout</button>
+      </div>
+    </div>
 
-  <script src="firebase.js"></script>
-  <script>
-    let me=null;
-    firebase.auth().onAuthStateChanged(u=>{
-      me=u;
-      if(!u){ alert('Please login first.'); location.href='login.html'; }
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Name</label>
+          <input id="name" placeholder="Manali Adventure"/>
+        </div>
+        <div>
+          <label>Location</label>
+          <input id="location" placeholder="Manali, HP"/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Image URL</label>
+          <input id="imageURL" placeholder="https://…"/>
+        </div>
+        <div>
+          <label>Cost (₹)</label>
+          <input id="cost" type="number" placeholder="20000"/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>People</label>
+          <input id="people" type="number" placeholder="2"/>
+        </div>
+        <div>
+          <label>Transport</label>
+          <input id="transport" placeholder="flight / train / car"/>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Start Date</label>
+          <input id="startDate" type="date"/>
+        </div>
+        <div>
+          <label>End Date</label>
+          <input id="endDate" type="date"/>
+        </div>
+      </div>
+
+      <div>
+        <label>Points</label>
+        <textarea id="points" placeholder="beaches, church, cafe…"></textarea>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <button class="pill" id="btn-add">Add</button>
+        <span class="muted" id="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      auth, db, provider,
+      collection, addDoc, serverTimestamp,
+      onAuthStateChanged, signInWithPopup, signOut
+    } from "./js/firebase.js";
+
+    const btnLogin = document.getElementById('btn-login');
+    const btnLogout = document.getElementById('btn-logout');
+    const statusEl = document.getElementById('status');
+
+    btnLogin.onclick = async ()=> { await signInWithPopup(auth, provider); };
+    btnLogout.onclick = async ()=> { await signOut(auth); };
+
+    onAuthStateChanged(auth, (u)=>{
+      if (!u){
+        btnLogin.style.display = "";
+        btnLogout.style.display = "none";
+      } else {
+        btnLogin.style.display = "none";
+        btnLogout.style.display = "";
+      }
     });
-    const form=document.getElementById('form');
-    form.addEventListener('submit', async e=>{
-      e.preventDefault();
-      if(!me){ alert('Login required.'); return; }
-      const doc={
-        name:document.getElementById('name').value.trim(),
-        city:document.getElementById('city').value.trim(),
-        image:document.getElementById('image').value.trim(),
-        cost:document.getElementById('cost').value.trim(),
-        people:document.getElementById('people').value.trim(),
-        points:document.getElementById('points').value.trim(),
-        startDate:document.getElementById('startDate').value.trim(),
-        endDate:document.getElementById('endDate').value.trim(),
-        transport:document.getElementById('transport').value.trim(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+
+    document.getElementById('btn-add').onclick = async ()=>{
+      const user = auth.currentUser;
+      if (!user){ alert('Please login first.'); return; }
+
+      const data = {
+        name: document.getElementById('name').value.trim(),
+        location: document.getElementById('location').value.trim(),
+        imageURL: document.getElementById('imageURL').value.trim(),
+        cost: Number(document.getElementById('cost').value || 0),
+        people: Number(document.getElementById('people').value || 0),
+        transport: document.getElementById('transport').value.trim(),
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value,
+        points: document.getElementById('points').value.trim(),
+        createdAt: serverTimestamp(),
+        createdBy: user.uid
       };
+
       try{
-        await firebase.firestore().collection('spots').add(doc);
-        alert('Spot added.'); location.href='index.html';
-      }catch(err){ alert(err.message); }
-    });
+        statusEl.textContent = 'Saving…';
+        await addDoc(collection(db,'spots'), data);
+        statusEl.textContent = 'Saved! Go back to Swipe.';
+        // quick reset
+        document.querySelectorAll('input,textarea').forEach(el=> el.value='');
+      }catch(e){
+        console.error(e);
+        statusEl.textContent = 'Error: ' + (e.message || e);
+        alert('Missing or insufficient permissions. Check Firestore rules.');
+      }
+    };
   </script>
 </body>
 </html>
