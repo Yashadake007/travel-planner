@@ -1,319 +1,264 @@
-/* === Swipe logic: fixed to actually remove card, save to Firestore, and show next === */
+// script.js — unified, production-ready swipe + lists + auth UI
 
-(function initIndexPage(){
-  const stack = document.getElementById('stack');
-  if (!stack) return; // only run on index page
+// DOM
+const stackEl = document.getElementById('card-stack');
+const emptyEl = document.getElementById('empty-state');
+const loginBtn = document.getElementById('login-btn');
+const signupBtn = document.getElementById('signup-btn');
+const logoutBtn = document.getElementById('logout-btn');
 
-  let user = null;
-  let spots = [];
-  let idx = 0;            // current index in spots
-  let history = [];       // stack for review (down swipe goes back)
-  let currentIndex = 0;
-  let interestedList = [];
-  let notInterestedList = [];
-  let skippedList = []
-  // boot
-  const cardContainer = document.getElementById("card-container");
-  const interestedBtn = document.getElementById("interested-btn");
-  const notInterestedBtn = document.getElementById("not-interested-btn");
-  const skipBtn = document.getElementById("skip-btn");
-  const reconsiderBtn = document.getElementById("reconsider-btn");
-  function loadCard(index) {
-    if (index >= spots.length) {
-        cardContainer.innerHTML = `<div class="no-more">No more spots to show!</div>`;
-        return;
-    }
+const modal = document.getElementById('list-modal');
+const modalTitle = document.getElementById('modal-title');
+const modalBody = document.getElementById('modal-body');
+const modalClose = document.getElementById('modal-close');
 
-    const spot = spots[index];
-    cardContainer.innerHTML = `
-        <div class="spot-card" id="spot-card">
-            <img src="${spot.image}" alt="${spot.name}">
-            <h2>${spot.name}</h2>
-            <p><strong>Cost:</strong> ₹${spot.cost}</p>
-            <p><strong>People:</strong> ${spot.people}</p>
-            <p><strong>Points:</strong> ${spot.points}</p>
-            <p><strong>Dates:</strong> ${spot.startDate} → ${spot.endDate}</p>
-            <p><strong>Transport:</strong> ${spot.transport}</p>
-        </div>
-    `;
-}
+const btnOpenInterested = document.getElementById('btn-open-interested');
+const btnOpenNot = document.getElementById('btn-open-not');
+const btnOpenSkipped = document.getElementById('btn-open-skipped');
+const btnReview = document.getElementById('btn-review');
 
-function swipeCard(direction) {
-    const card = document.getElementById("spot-card");
-    if (!card) return;
+// State
+let user = null;
+let spots = [];
+let idx = 0;                  // index of current card
+let historyIdx = [];          // to support "review" (rewind)
+let gestureHandlersBound = false;
 
-    if (direction === "right") {
-        interestedList.push(spots[currentIndex]);
-        card.style.transform = "translateX(400px) rotate(20deg)";
-        showFeedback("❤️");
-    } else if (direction === "left") {
-        notInterestedList.push(spots[currentIndex]);
-        card.style.transform = "translateX(-400px) rotate(-20deg)";
-        showFeedback("💔");
-    } else if (direction === "skip") {
-        skippedList.push(spots[currentIndex]);
-        card.style.transform = "translateY(-400px)";
-    } else if (direction === "reconsider") {
-        if (skippedList.length > 0) {
-            currentIndex--;
-            spots.splice(currentIndex, 0, skippedList.pop());
-        }
-        card.style.transform = "translateY(400px)";
-    }
+// Helpers
+const esc = (s='') => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-    card.style.opacity = "0";
-
-    setTimeout(() => {
-        currentIndex++;
-        loadCard(currentIndex);
-    }, 300);
-}
-
-function showFeedback(symbol) {
-    const feedback = document.createElement("div");
-    feedback.className = "feedback";
-    feedback.textContent = symbol;
-    document.body.appendChild(feedback);
-    setTimeout(() => feedback.remove(), 600);
-}
-
-// Button Listeners
-interestedBtn.addEventListener("click", () => swipeCard("right"));
-notInterestedBtn.addEventListener("click", () => swipeCard("left"));
-skipBtn.addEventListener("click", () => swipeCard("skip"));
-reconsiderBtn.addEventListener("click", () => swipeCard("reconsider"));
-
-// Swipe gesture support
-let startX = 0;
-cardContainer.addEventListener("touchstart", e => startX = e.touches[0].clientX);
-cardContainer.addEventListener("touchend", e => {
-    let endX = e.changedTouches[0].clientX;
-    if (endX - startX > 50) swipeCard("right");
-    else if (startX - endX > 50) swipeCard("left");
+// Auth UI
+auth.onAuthStateChanged(async u => {
+  user = u || null;
+  loginBtn.style.display = user ? 'none':'';
+  signupBtn.style.display = user ? 'none':'';
+  logoutBtn.style.display = user ? '' : 'none';
+  await loadSpots();
+  render();
 });
 
-loadCard(currentIndex);
-  requireAuth().then(async (u) => {
-    user = u;
-    await loadSpots();
-    render();
-    attachKeyboard(); // optional helpers (arrows)
-    // Optional: action buttons if you later add them with these IDs
-    bindOptionalButtons();
-  });
+loginBtn.onclick = () => location.href = 'login.html';
+signupBtn.onclick = () => location.href = 'signup.html';
+logoutBtn.onclick = () => auth.signOut().then(()=>location.href='index.html');
 
-  async function loadSpots(){
-    // Load all spots (you can filter out already-interacted ones if you want later)
-    const snap = await db.collection('spots').orderBy('createdAt','desc').get().catch(()=>null);
-    if (!snap || snap.empty){ spots = []; return; }
-    spots = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+// Load spots from Firestore
+async function loadSpots(){
+  try{
+    const snap = await db.collection('spots').orderBy('createdAt','desc').get();
+    spots = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    idx = 0;
+    historyIdx = [];
+  }catch(e){
+    console.error('loadSpots error', e);
+    spots = [];
+  }
+}
+
+// Render current card
+function render(){
+  stackEl.innerHTML = '';
+
+  if (!spots.length || idx >= spots.length){
+    emptyEl.style.display = 'block';
+    return;
+  } else {
+    emptyEl.style.display = 'none';
   }
 
-  function render(){
-    stack.innerHTML = '';
-    if (idx >= spots.length){
-      stack.innerHTML = `<div class="container"><h2>All caught up 🎉</h2><p class="empty">No more trips. Add more from Create Spot.</p></div>`;
-      return;
-    }
-    const s = spots[idx];
-    const card = document.createElement('div');
-    card.className = 'card'; card.id = 'active-card';
+  const s = spots[idx];
+  const card = document.createElement('div');
+  card.className = 'trip-card';
+  card.id = 'active-card';
 
-    const imgURL = s.imageURL || 'https://picsum.photos/800/500';
-    card.innerHTML = `
-      <div class="overlay like"   id="ov-like">❤️</div>
-      <div class="overlay dislike" id="ov-dislike">💔</div>
-      <div class="overlay skip"    id="ov-skip">⏫</div>
-      <div class="overlay review"  id="ov-review">🔄</div>
+  const imgSrc = s.imageURL || s.image || '';
+  card.innerHTML = `
+    <div class="overlay like">❤️</div>
+    <div class="overlay dislike">💔</div>
+    <div class="overlay skip">⏩</div>
+    <div class="overlay review">🔄</div>
 
-      <img src="${imgURL}" alt="${escapeHtml(s.name||'Trip')}">
-      <div class="content">
-        <h3>${escapeHtml(s.name||'Unnamed spot')}</h3>
-        <p><b>Cost:</b> ₹${s.cost ?? '-'}</p>
-        <p><b>People:</b> ${s.people ?? '-'}</p>
-        <p><b>Points:</b> ${escapeHtml(s.points||'-')}</p>
-        <p><b>Dates:</b> ${escapeHtml(s.startDate||'-')} → ${escapeHtml(s.endDate||'-')}</p>
-        <p><b>Transport:</b> ${escapeHtml(s.transport||'-')}</p>
-      </div>
-    `;
-    stack.appendChild(card);
-    hookGestures(card);
-  }
+    <img src="${esc(imgSrc)}" alt="${esc(s.name || 'Spot')}">
+    <div class="content">
+      <h3>${esc(s.name || 'Untitled spot')}</h3>
+      <p><b>Cost:</b> ₹${esc(s.cost ?? '-')}</p>
+      <p><b>People:</b> ${esc(s.people ?? '-')}</p>
+      <p><b>Points:</b> ${esc(s.points || '-')}</p>
+      <p><b>Dates:</b> ${esc(s.startDate || '-')} → ${esc(s.endDate || '-')}</p>
+      <p><b>Transport:</b> ${esc(s.transport || '-')}</p>
+    </div>
+  `;
 
-  function hookGestures(card){
-    let sx=0, sy=0, dragging=false;
+  stackEl.appendChild(card);
+  attachSwipe(card);
+}
 
-    const start = (x,y)=>{ sx=x; sy=y; dragging=true; card.classList.remove('snap-back'); };
-    const move  = (x,y)=>{
-      if (!dragging) return;
-      const dx = x - sx, dy = y - sy;
-      card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/12}deg)`;
+// Pointer-gesture swipe (desktop + mobile)
+function attachSwipe(card){
+  let sx=0, sy=0, dragging=false;
 
-      toggle('ov-like',     dx>40);
-      toggle('ov-dislike',  dx<-40);
-      toggle('ov-skip',     dy<-40);
-      toggle('ov-review',   dy>40);
+  const ov = {
+    like: card.querySelector('.overlay.like'),
+    dislike: card.querySelector('.overlay.dislike'),
+    skip: card.querySelector('.overlay.skip'),
+    review: card.querySelector('.overlay.review'),
+  };
+
+  const show = (el, on)=> el && (el.style.opacity = on ? '1':'0');
+
+  const start = (e)=>{
+    dragging = true;
+    sx = e.clientX ?? (e.touches ? e.touches[0].clientX : 0);
+    sy = e.clientY ?? (e.touches ? e.touches[0].clientY : 0);
+    card.classList.remove('snap-back');
+  };
+  const move = (e)=>{
+    if(!dragging) return;
+    const x = e.clientX ?? (e.touches ? e.touches[0].clientX : 0);
+    const y = e.clientY ?? (e.touches ? e.touches[0].clientY : 0);
+    const dx = x - sx, dy = y - sy;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx/12}deg)`;
+    show(ov.like, dx>50);
+    show(ov.dislike, dx<-50);
+    show(ov.skip, dy<-50);
+    show(ov.review, dy>50);
+  };
+  const end = (e)=>{
+    if(!dragging) return;
+    dragging = false;
+    const ex = e.clientX ?? (e.changedTouches ? e.changedTouches[0].clientX : sx);
+    const ey = e.clientY ?? (e.changedTouches ? e.changedTouches[0].clientY : sy);
+    const dx = ex - sx, dy = ey - sy;
+
+    if (dx > 110) return doAction('interested', card);
+    if (dx < -110) return doAction('not_interested', card);
+    if (dy < -110) return doAction('skipped', card);
+    if (dy > 110) return doAction('review', card);
+
+    // snap back
+    card.classList.add('snap-back');
+    card.style.transform = '';
+    show(ov.like,false); show(ov.dislike,false); show(ov.skip,false); show(ov.review,false);
+  };
+
+  // Pointer events cover mouse+touch on modern browsers
+  card.addEventListener('pointerdown', start);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+}
+
+// Save choice + animate out
+async function doAction(kind, card){
+  const s = spots[idx];
+
+  // Animate exit
+  if (kind==='interested') card.classList.add('exit-right');
+  if (kind==='not_interested') card.classList.add('exit-left');
+  if (kind==='skipped') card.classList.add('exit-up');
+  if (kind==='review') card.classList.add('exit-down');
+
+  // Hide overlays immediately
+  card.querySelectorAll('.overlay').forEach(o => o.style.opacity='0');
+
+  // Persist (except review)
+  if (kind !== 'review' && user){
+    const payload = {
+      userId: user.uid,
+      spotId: s.id,
+      choice: kind,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
     };
-    const end = (x,y)=>{
-      if (!dragging) return;
-      dragging=false;
-      const dx = x - sx, dy = y - sy;
-
-      // thresholds
-      if (dx > 100)   return doAction('interested', card);
-      if (dx < -100)  return doAction('notInterested', card);
-      if (dy < -110)  return doAction('skipped', card);
-      if (dy > 110)   return doAction('review', card);
-
-      // snap back
-      card.classList.add('snap-back');
-      card.style.transform = `translate(0px, 0px) rotate(0deg)`;
-      ['ov-like','ov-dislike','ov-skip','ov-review'].forEach(id=>toggle(id,false));
-    };
-
-    // Touch
-    card.addEventListener('touchstart', e=>start(e.touches[0].clientX, e.touches[0].clientY), {passive:true});
-    card.addEventListener('touchmove',  e=>move(e.touches[0].clientX, e.touches[0].clientY),   {passive:true});
-    card.addEventListener('touchend',   e=>end(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
-    // Mouse
-    card.addEventListener('mousedown',  e=>start(e.clientX, e.clientY));
-    window.addEventListener('mousemove',e=>move(e.clientX, e.clientY));
-    window.addEventListener('mouseup',  e=>end(e.clientX, e.clientY));
+    try { await db.collection('userChoices').add(payload); }
+    catch(e){ console.error('save choice failed', e); /* continue UI anyway */ }
   }
 
-  function toggle(id,show){ const el=document.getElementById(id); if(!el) return; el.classList.toggle('show', !!show); }
-
-  async function doAction(kind, card){
-    const spot = spots[idx];
-    // Exit animation class
-    if (kind==='interested')     card.classList.add('exit-right');
-    if (kind==='notInterested')  card.classList.add('exit-left');
-    if (kind==='skipped')        card.classList.add('exit-up');
-    if (kind==='review')         card.classList.add('exit-down');
-
-    // Hide overlays immediately
-    ['ov-like','ov-dislike','ov-skip','ov-review'].forEach(id=>toggle(id,false));
-
-    // Persist interest (fire and wait; if it fails we revert index & re-render)
-    try { await writeInterest(kind, spot); }
-    catch(e){ console.error(e); alert('Could not save your action. Check rules/connection.'); }
-
-    // Update index/history and show next after transition
-    const done = ()=> {
-      if (kind!=='review') history.push(idx);
-      if (kind==='review'){
-        idx = history.length ? Math.max(0, history.pop()) : Math.max(0, idx-1);
-      } else {
-        idx += 1;
-      }
-      render();
-    };
-
-    // Prefer transitionend; fallback to timeout
-    let finished = false;
-    card.addEventListener('transitionend', () => { if (!finished){ finished=true; done(); } }, { once:true });
-    setTimeout(() => { if (!finished){ finished=true; done(); } }, 260);
-  }
-
-  async function writeInterest(kind, spot){
-    if (!spot || !spot.id) return;
-    const spotId = spot.id;
-    const rollup = db.collection('spots_interests').doc(spotId);
-    const who = { uid:user.uid, email:user.email||'', at: firebase.firestore.FieldValue.serverTimestamp() };
-
-    await rollup.set({ spotId, name: spot.name||'' }, { merge:true });
-
-    if (kind==='interested'){
-      await rollup.update({ interestedUsers: firebase.firestore.FieldValue.arrayUnion(who) });
-      await db.collection('users').doc(user.uid).collection('interested').doc(spotId).set({
-        spotId, name: spot.name||'', imageURL: spot.imageURL||'', at: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge:true });
-    }
-    if (kind==='notInterested'){
-      await rollup.update({ notInterestedUsers: firebase.firestore.FieldValue.arrayUnion(who) });
-      await db.collection('users').doc(user.uid).collection('notInterested').doc(spotId).set({
-        spotId, name: spot.name||'', at: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge:true });
-    }
-    if (kind==='skipped'){
-      await rollup.update({ skippedUsers: firebase.firestore.FieldValue.arrayUnion(who) });
-      await db.collection('users').doc(user.uid).collection('skipped').doc(spotId).set({
-        spotId, name: spot.name||'', at: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge:true });
-    }
-    if (kind==='review'){
-      // No DB write for review; it's just a "go back" action.
-    }
-  }
-
-  // People modal for current spot (buttons call openPeopleList('interested'|'notInterested'|'skipped'))
-  async function openPeopleList(kind){
-    if (idx>=spots.length) return;
-    const s = spots[idx];
-    const doc = await db.collection('spots_interests').doc(s.id).get().catch(()=>null);
-    const data = doc && doc.exists ? doc.data() : {};
-    const arr = (kind==='interested') ? (data.interestedUsers||[])
-              : (kind==='notInterested') ? (data.notInterestedUsers||[])
-              : (data.skippedUsers||[]);
-    document.getElementById('modalTitle').textContent =
-      (kind==='interested'?'People Interested in ':
-       kind==='notInterested'?'People Not Interested in ':'People who Skipped ') + (s.name||'');
-    document.getElementById('modalSpotName').textContent = `Spot: ${s.name||''}`;
-    const list = document.getElementById('peopleList');
-    list.innerHTML = '';
-    if (!arr.length) {
-      list.innerHTML = `<p class="empty">No entries yet.</p>`;
+  // Move index (review = rewind one previous)
+  const after = ()=>{
+    if (kind === 'review'){
+      if (historyIdx.length > 0) idx = Math.max(0, historyIdx.pop());
+      else idx = Math.max(0, idx-1);
     } else {
-      const table = document.createElement('table');
-      table.className = 'table';
-      table.innerHTML = `<thead><tr><th>#</th><th>Email</th><th>UID</th></tr></thead><tbody></tbody>`;
-      const tb = table.querySelector('tbody');
-      arr.forEach((u, i)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(u.email||'-')}</td><td>${escapeHtml(u.uid||'-')}</td>`;
-        tb.appendChild(tr);
-      });
-      list.appendChild(table);
+      historyIdx.push(idx);
+      idx = Math.min(spots.length, idx+1);
     }
-    document.getElementById('modalBackdrop').style.display='flex';
-  }
-  function closeModal(){ document.getElementById('modalBackdrop').style.display='none'; }
+    render();
+  };
 
-  // expose for inline onclicks
-  window.openPeopleList = openPeopleList;
-  window.closeModal = closeModal;
+  // Prefer transitionend; fallback to timeout
+  let done=false;
+  card.addEventListener('transitionend', ()=>{ if(!done){ done=true; after(); } }, { once:true });
+  setTimeout(()=>{ if(!done){ done=true; after(); } }, 300);
+}
 
-  // Helpers
-  function escapeHtml(s=''){
-    return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
-  }
+/* ---------- Lists Modal ---------- */
+// Open lists (interested / not_interested / skipped) of the *current user*
+btnOpenInterested.onclick = () => openList('interested');
+btnOpenNot.onclick = () => openList('not_interested');
+btnOpenSkipped.onclick = () => openList('skipped');
+btnReview.onclick = () => {
+  // Rewind button (down swipe behavior)
+  const active = document.getElementById('active-card');
+  if (active) doAction('review', active);
+};
+modalClose.onclick = () => modal.classList.add('hidden');
 
-  function attachKeyboard(){
-    // Left/Right/Up/Down for testing on desktop
-    window.addEventListener('keydown', (e)=>{
-      const card = document.getElementById('active-card');
-      if (!card) return;
-      if (e.key==='ArrowRight') doAction('interested', card);
-      if (e.key==='ArrowLeft')  doAction('notInterested', card);
-      if (e.key==='ArrowUp')    doAction('skipped', card);
-      if (e.key==='ArrowDown')  doAction('review', card);
+async function openList(choice){
+  if (!user){ alert('Please login first.'); return; }
+  modal.classList.remove('hidden');
+  modalTitle.textContent =
+    choice==='interested' ? 'My Interested Spots':
+    choice==='not_interested' ? 'My Not Interested Spots' : 'My Skipped Spots';
+  modalBody.innerHTML = '<p>Loading…</p>';
+
+  try{
+    const snap = await db.collection('userChoices')
+      .where('userId','==', user.uid)
+      .where('choice','==', choice)
+      .orderBy('timestamp','desc')
+      .get();
+
+    if (snap.empty){ modalBody.innerHTML = '<p class="muted">Nothing here yet.</p>'; return; }
+
+    // Fetch spot docs
+    const gets = [];
+    snap.forEach(d => { const x = d.data(); if (x.spotId) gets.push(db.collection('spots').doc(x.spotId).get()); });
+    const results = await Promise.all(gets);
+
+    const items = results
+      .filter(doc => doc && doc.exists)
+      .map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (!items.length){ modalBody.innerHTML = '<p class="muted">No spot details found.</p>'; return; }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'list-grid';
+    items.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      const img = esc(s.imageURL || s.image || '');
+      div.innerHTML = `
+        <div style="display:flex;gap:10px;align-items:center">
+          <img src="${img}" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:8px; background:#0b1220" onerror="this.style.display='none'">
+          <div>
+            <div><strong>${esc(s.name||'Untitled')}</strong></div>
+            <div style="font-size:12px;color:#9aa4b2">${esc(s.points||'')}</div>
+          </div>
+        </div>`;
+      wrap.appendChild(div);
     });
+    modalBody.innerHTML = '';
+    modalBody.appendChild(wrap);
+  }catch(e){
+    console.error('openList', e);
+    modalBody.innerHTML = '<p class="muted">Error loading list.</p>';
   }
+}
 
-  function bindOptionalButtons(){
-    // Only binds if you have these buttons somewhere
-    const likeBtn = document.getElementById('btn-like');
-    const nopeBtn = document.getElementById('btn-nope');
-    const skipBtn = document.getElementById('btn-skip');
-    const backBtn = document.getElementById('btn-review');
-    const handler = (kind)=>()=>{
-      const card = document.getElementById('active-card');
-      if (card) doAction(kind, card);
-    };
-    if (likeBtn) likeBtn.addEventListener('click', handler('interested'));
-    if (nopeBtn) nopeBtn.addEventListener('click', handler('notInterested'));
-    if (skipBtn) skipBtn.addEventListener('click', handler('skipped'));
-    if (backBtn) backBtn.addEventListener('click', handler('review'));
-  }
-})();
-
+// Keyboard shortcuts (optional, desktop)
+window.addEventListener('keydown', (e)=>{
+  const card = document.getElementById('active-card');
+  if (!card) return;
+  if (e.key === 'ArrowRight') doAction('interested', card);
+  if (e.key === 'ArrowLeft')  doAction('not_interested', card);
+  if (e.key === 'ArrowUp')    doAction('skipped', card);
+  if (e.key === 'ArrowDown')  doAction('review', card);
+});
