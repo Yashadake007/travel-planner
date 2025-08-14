@@ -2,7 +2,6 @@
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-
 // Keep track of logged-in user
 window.currentUser = null;
 
