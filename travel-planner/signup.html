@@ -4,30 +4,40 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Sign up</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body style="padding:20px">
-  <h2>Sign up</h2>
-  <form id="form">
-    <input id="email" type="email" placeholder="Email" required style="padding:8px"><br><br>
-    <input id="pw" type="password" placeholder="Password" required style="padding:8px"><br><br>
-    <button class="ghost-btn">Create account</button>
-  </form>
-  <p><a href="login.html">Already have an account? Login</a></p>
+  <div class="container">
+    <h2>Sign up</h2>
+    <form id="form" class="form">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="Email" required><br>
+      <label for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" required><br>
+      <button class="primary-btn" type="submit">Create account</button>
+    </form>
+    <p class="muted" style="text-align:center; margin-top: 20px;">
+      <a href="login.html" class="ghost-btn">Already have an account? Login</a>
+      <a href="index.html" class="ghost-btn" style="margin-left: 10px;">Back to Home</a>
+    </p>
+  </div>
 
-  <script src="firebase.js"></script>
-  <script>
+  <script type="module">
+    import { auth, createUserWithEmailAndPassword } from "./firebase.js";
+
     const form = document.getElementById('form');
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const email = document.getElementById('email').value.trim();
       const pw = document.getElementById('pw').value;
       try{
-        await firebase.auth().createUserWithEmailAndPassword(email, pw);
+        await createUserWithEmailAndPassword(auth, email, pw);
+        alert("Account created successfully! You are now logged in.");
         location.href='index.html';
-      }catch(err){ alert(err.message); }
+      }catch(err){
+        alert("Sign up failed: " + err.message);
+        console.error("Sign up error:", err);
+      }
     });
   </script>
 </body>
