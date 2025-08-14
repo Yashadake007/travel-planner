@@ -2,49 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Travel Planner</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
 </head>
 <body>
-  <!-- Header -->
   <header>
     <h1>Travel Planner</h1>
-    <nav id="authNav">
+    <div id="authSection">
       <button id="loginBtn">Login</button>
       <button id="signupBtn">Sign Up</button>
       <button id="logoutBtn" style="display:none;">Logout</button>
-    </nav>
+    </div>
   </header>
 
-  <!-- Main Swipe Container -->
   <main>
-    <div class="swipe-container">
-      <div id="spotCard" class="card"></div>
-      <div class="vertical-btns">
-        <button id="interestedListBtn">❤️</button>
-        <button id="notInterestedListBtn">💔</button>
-        <button id="skippedListBtn">⏩</button>
-        <button id="reviewListBtn">🔄</button>
+    <section id="spotSection">
+      <div id="spotCard" class="spot-card-container">
+        <p>Loading spots...</p>
       </div>
-    </div>
+      <div class="action-buttons">
+        <button id="notInterestedBtn" class="btn btn-danger">Not Interested</button>
+        <button id="skipBtn" class="btn btn-secondary">Skip</button>
+        <button id="interestedBtn" class="btn btn-success">Interested</button>
+      </div>
+      <div class="list-buttons">
+        <button id="interestedListBtn" class="btn">Interested List</button>
+        <button id="notInterestedListBtn" class="btn">Not Interested List</button>
+        <button id="reviewListBtn" class="btn">Review List</button>
+      </div>
+    </section>
   </main>
 
-  <!-- Modals -->
+  <!-- List Modal -->
   <div id="listModal" class="modal">
     <div class="modal-content">
-      <span id="closeListModal" class="close">&times;</span>
-      <h2 id="listTitle"></h2>
-      <ul id="listContent"></ul>
+      <span id="listClose" class="close">&times;</span>
+      <h2>List</h2>
+      <div id="listContent"></div>
     </div>
   </div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-
-  <!-- Config & App -->
   <script src="firebaseConfig.js"></script>
   <script src="app.js"></script>
   <script src="script.js"></script>
