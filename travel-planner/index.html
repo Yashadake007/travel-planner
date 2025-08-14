@@ -1,53 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Travel Planner</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Planner</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Correct CSS path -->
 </head>
 <body>
-  <header>
-    <h1>Travel Planner</h1>
-    <div id="authSection">
-      <button id="loginBtn">Login</button>
-      <button id="signupBtn">Sign Up</button>
-      <button id="logoutBtn" style="display:none;">Logout</button>
-    </div>
-  </header>
+    <header>
+        <h1>Travel Planner</h1>
+        <div class="auth-buttons">
+            <button id="loginBtn">Login</button>
+            <button id="signupBtn">Sign Up</button>
+        </div>
+    </header>
 
-  <main>
-    <section id="spotSection">
-      <div id="spotCard" class="spot-card-container">
-        <p>Loading spots...</p>
-      </div>
-      <div class="action-buttons">
-        <button id="notInterestedBtn" class="btn btn-danger">Not Interested</button>
-        <button id="skipBtn" class="btn btn-secondary">Skip</button>
-        <button id="interestedBtn" class="btn btn-success">Interested</button>
-      </div>
-      <div class="list-buttons">
-        <button id="interestedListBtn" class="btn">Interested List</button>
-        <button id="notInterestedListBtn" class="btn">Not Interested List</button>
-        <button id="reviewListBtn" class="btn">Review List</button>
-      </div>
-    </section>
-  </main>
+    <main>
+        <section id="card-section">
+            <p>Loading spots...</p>
+        </section>
 
-  <!-- List Modal -->
-  <div id="listModal" class="modal">
-    <div class="modal-content">
-      <span id="listClose" class="close">&times;</span>
-      <h2>List</h2>
-      <div id="listContent"></div>
-    </div>
-  </div>
+        <div class="buttons">
+            <button id="notInterestedBtn">Not Interested</button>
+            <button id="skipBtn">Skip</button>
+            <button id="interestedBtn">Interested</button>
+        </div>
 
-  <script src="firebaseConfig.js"></script>
-  <script src="app.js"></script>
-  <script src="script.js"></script>
+        <div class="list-buttons">
+            <button id="interestedListBtn">Interested List</button>
+            <button id="notInterestedListBtn">Not Interested List</button>
+            <button id="reviewListBtn">Review List</button>
+        </div>
+
+        <section id="list-section">
+            <h2>List</h2>
+            <div id="list"></div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
 </body>
 </html>
