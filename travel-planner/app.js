@@ -1,19 +1,17 @@
-// Initialize Firebase App
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-// Keep track of logged-in user
+// app.js
+import { auth, db, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, collection, getDocs } from "./firebase.js";
+
 window.currentUser = null;
 
 // Auth state listener
-auth.onAuthStateChanged(user => {
+onAuthStateChanged(auth, user => {
   if (user) {
     console.log("User logged in:", user.email);
     window.currentUser = user;
     document.getElementById("loginBtn").style.display = "none";
     document.getElementById("signupBtn").style.display = "none";
     document.getElementById("logoutBtn").style.display = "inline-block";
-    loadSpots(); // Load spots after login
+    loadSpots();
   } else {
     console.log("No user logged in");
     window.currentUser = null;
@@ -25,40 +23,47 @@ auth.onAuthStateChanged(user => {
 });
 
 // Login button
-document.getElementById("loginBtn").addEventListener("click", () => {
+document.getElementById("loginBtn").addEventListener("click", async () => {
   const email = prompt("Enter email:");
   const password = prompt("Enter password:");
   if (email && password) {
-    auth.signInWithEmailAndPassword(email, password)
-      .catch(err => alert(err.message));
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      alert(err.message);
+    }
   }
 });
 
 // Signup button
-document.getElementById("signupBtn").addEventListener("click", () => {
+document.getElementById("signupBtn").addEventListener("click", async () => {
   const email = prompt("Enter email:");
   const password = prompt("Enter password:");
   if (email && password) {
-    auth.createUserWithEmailAndPassword(email, password)
-      .catch(err => alert(err.message));
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      alert(err.message);
+    }
   }
 });
 
 // Logout button
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  auth.signOut();
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await signOut(auth);
 });
 
 // Load spots from Firestore
-function loadSpots() {
-  db.collection("spots").get().then(snapshot => {
+async function loadSpots() {
+  try {
+    const snapshot = await getDocs(collection(db, "spots"));
     const spots = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     window.allSpots = spots;
     console.log("Loaded spots:", spots);
     if (typeof renderSpot === "function") {
-      renderSpot(0); // Show first spot
+      renderSpot(0);
     }
-  }).catch(err => {
+  } catch (err) {
     console.error("Error loading spots:", err);
-  });
+  }
 }
