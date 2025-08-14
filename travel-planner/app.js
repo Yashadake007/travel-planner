@@ -1,74 +1,65 @@
-// app.js — handles auth state, login, signup, logout UI updates
+// Initialize Firebase App
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
+// Keep track of logged-in user
 window.currentUser = null;
 
-document.addEventListener("DOMContentLoaded", () => {
-  const loginForm = document.querySelector("#loginForm");
-  const signupForm = document.querySelector("#signupForm");
-  const logoutBtn = document.querySelector("#logoutBtn");
-  const userInfo = document.querySelector("#userInfo");
-
-  // Login
-  if (loginForm) {
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = loginForm.querySelector("#loginEmail").value.trim();
-      const password = loginForm.querySelector("#loginPassword").value.trim();
-
-      try {
-        await auth.signInWithEmailAndPassword(email, password);
-        loginForm.reset();
-      } catch (err) {
-        alert("Login failed: " + err.message);
-      }
-    });
-  }
-
-  // Signup
-  if (signupForm) {
-    signupForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = signupForm.querySelector("#signupEmail").value.trim();
-      const password = signupForm.querySelector("#signupPassword").value.trim();
-
-      try {
-        await auth.createUserWithEmailAndPassword(email, password);
-        signupForm.reset();
-      } catch (err) {
-        alert("Signup failed: " + err.message);
-      }
-    });
-  }
-
-  // Logout
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      try {
-        await auth.signOut();
-      } catch (err) {
-        console.error("Logout error:", err);
-      }
-    });
-  }
-
-  // Auth State Change
-  auth.onAuthStateChanged((user) => {
+// Auth state listener
+auth.onAuthStateChanged(user => {
+  if (user) {
+    console.log("User logged in:", user.email);
     window.currentUser = user;
-    if (user) {
-      if (userInfo) userInfo.textContent = `Logged in as: ${user.email}`;
-      toggleUI(true);
-    } else {
-      if (userInfo) userInfo.textContent = "";
-      toggleUI(false);
-    }
-  });
+    document.getElementById("loginBtn").style.display = "none";
+    document.getElementById("signupBtn").style.display = "none";
+    document.getElementById("logoutBtn").style.display = "inline-block";
+    loadSpots(); // Load spots after login
+  } else {
+    console.log("No user logged in");
+    window.currentUser = null;
+    document.getElementById("loginBtn").style.display = "inline-block";
+    document.getElementById("signupBtn").style.display = "inline-block";
+    document.getElementById("logoutBtn").style.display = "none";
+    document.getElementById("spotCard").innerHTML = "<p>Please log in to see travel spots.</p>";
+  }
 });
 
-// Show/hide UI sections based on auth state
-function toggleUI(loggedIn) {
-  const authSection = document.querySelector("#authSection");
-  const appSection = document.querySelector("#appSection");
+// Login button
+document.getElementById("loginBtn").addEventListener("click", () => {
+  const email = prompt("Enter email:");
+  const password = prompt("Enter password:");
+  if (email && password) {
+    auth.signInWithEmailAndPassword(email, password)
+      .catch(err => alert(err.message));
+  }
+});
 
-  if (authSection) authSection.style.display = loggedIn ? "none" : "block";
-  if (appSection) appSection.style.display = loggedIn ? "block" : "none";
+// Signup button
+document.getElementById("signupBtn").addEventListener("click", () => {
+  const email = prompt("Enter email:");
+  const password = prompt("Enter password:");
+  if (email && password) {
+    auth.createUserWithEmailAndPassword(email, password)
+      .catch(err => alert(err.message));
+  }
+});
+
+// Logout button
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  auth.signOut();
+});
+
+// Load spots from Firestore
+function loadSpots() {
+  db.collection("spots").get().then(snapshot => {
+    const spots = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    window.allSpots = spots;
+    console.log("Loaded spots:", spots);
+    if (typeof renderSpot === "function") {
+      renderSpot(0); // Show first spot
+    }
+  }).catch(err => {
+    console.error("Error loading spots:", err);
+  });
 }
