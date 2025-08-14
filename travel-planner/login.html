@@ -4,30 +4,39 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Login</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body style="padding:20px">
-  <h2>Login</h2>
-  <form id="form">
-    <input id="email" type="email" placeholder="Email" required style="padding:8px"><br><br>
-    <input id="pw" type="password" placeholder="Password" required style="padding:8px"><br><br>
-    <button class="ghost-btn">Login</button>
-  </form>
-  <p><a href="signup.html">Create an account</a></p>
+  <div class="container">
+    <h2>Login</h2>
+    <form id="form" class="form">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="Email" required><br>
+      <label for="pw">Password</label>
+      <input id="pw" type="password" placeholder="Password" required><br>
+      <button class="primary-btn" type="submit">Login</button>
+    </form>
+    <p class="muted" style="text-align:center; margin-top: 20px;">
+      <a href="signup.html" class="ghost-btn">Create an account</a>
+      <a href="index.html" class="ghost-btn" style="margin-left: 10px;">Back to Home</a>
+    </p>
+  </div>
 
-  <script src="firebase.js"></script>
-  <script>
+  <script type="module">
+    import { auth, signInWithEmailAndPassword } from "./firebase.js";
+
     const form = document.getElementById('form');
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const email = document.getElementById('email').value.trim();
       const pw = document.getElementById('pw').value;
       try{
-        await firebase.auth().signInWithEmailAndPassword(email, pw);
+        await signInWithEmailAndPassword(auth, email, pw);
         location.href='index.html';
-      }catch(err){ alert(err.message); }
+      }catch(err){
+        alert("Login failed: " + err.message);
+        console.error("Login error:", err);
+      }
     });
   </script>
 </body>
