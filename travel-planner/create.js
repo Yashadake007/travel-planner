@@ -1,54 +1,40 @@
-// js/create.js — add new travel spots to Firestore via TravelAPI
+// create.js
+// Make sure firebaseConfig.js is loaded before this file
 
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.querySelector("#createSpotForm");
-  const statusMsg = document.querySelector("#statusMsg");
+    const form = document.getElementById("create-spot-form");
+    const statusMsg = document.getElementById("status-msg");
 
-  if (!form) {
-    console.error("Create form not found!");
-    return;
-  }
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+        const name = document.getElementById("spot-name").value.trim();
+        const location = document.getElementById("spot-location").value.trim();
+        const description = document.getElementById("spot-description").value.trim();
+        const imageUrl = document.getElementById("spot-image").value.trim();
 
-    if (!window.currentUser) {
-      alert("You must be logged in to create a spot.");
-      return;
-    }
+        if (!name || !location || !description || !imageUrl) {
+            statusMsg.textContent = "Please fill in all fields.";
+            statusMsg.style.color = "red";
+            return;
+        }
 
-    const name = form.querySelector("#spotName").value.trim();
-    const description = form.querySelector("#spotDescription").value.trim();
-    const imageUrl = form.querySelector("#spotImage").value.trim();
+        try {
+            await db.collection("spots").add({
+                name,
+                location,
+                description,
+                imageUrl,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
 
-    if (!name) {
-      alert("Spot name is required.");
-      return;
-    }
-
-    statusMsg.textContent = "Saving spot...";
-    statusMsg.className = "loading";
-
-    try {
-      const docRef = await firebase.firestore().collection("spots").add({
-        name,
-        description: description || "",
-        imageUrl: imageUrl || "",
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        createdBy: window.currentUser.uid || null,
-        interested: [],
-        not_interested: [],
-        skipped: []
-      });
-
-      statusMsg.textContent = "Spot created successfully!";
-      statusMsg.className = "success";
-      form.reset();
-      console.log("New spot ID:", docRef.id);
-    } catch (err) {
-      console.error(err);
-      statusMsg.textContent = "Error creating spot: " + err.message;
-      statusMsg.className = "error";
-    }
-  });
+            statusMsg.textContent = "Spot created successfully!";
+            statusMsg.style.color = "green";
+            form.reset();
+        } catch (error) {
+            console.error("Error adding spot:", error);
+            statusMsg.textContent = "Error creating spot. Check console.";
+            statusMsg.style.color = "red";
+        }
+    });
 });
