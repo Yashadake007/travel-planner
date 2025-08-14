@@ -10,7 +10,9 @@ import {
 const stackEl = document.getElementById("card-stack");
 const emptyEl = document.getElementById("empty-state");
 
-const btnLogin  = document.getElementById("btn-login");
+// Updated login button references
+const loginOptionsDiv = document.getElementById("login-options");
+const btnLoginGoogle  = document.getElementById("btn-login-google");
 const btnLogout = document.getElementById("btn-logout");
 const btnAdmin  = document.getElementById("btn-admin");
 
@@ -45,7 +47,7 @@ let historyIndex = []; // To track previous spot indices for 'review'
 const esc = (s='') => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 /* ---------------- Authentication ---------------- */
-btnLogin.onclick  = async ()=> {
+btnLoginGoogle.onclick  = async ()=> {
   try {
     await signInWithPopup(auth, provider);
   } catch (error) {
@@ -68,8 +70,13 @@ btnAdmin.onclick  = ()=> {
 
 onAuthStateChanged(auth, async (u)=>{
   user = u || null;
-  btnLogin.style.display  = user ? "none" : "";
-  btnLogout.style.display = user ? ""     : "none";
+  if (user) {
+    loginOptionsDiv.style.display = "none"; // Hide login buttons
+    btnLogout.style.display = ""; // Show logout button
+  } else {
+    loginOptionsDiv.style.display = "flex"; // Show login buttons
+    btnLogout.style.display = "none"; // Hide logout button
+  }
   // Load all spots and then filter based on user choices
   await loadAllSpots();
   await filterSpotsForUser();
