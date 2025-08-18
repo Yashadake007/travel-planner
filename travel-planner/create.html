@@ -52,11 +52,19 @@
         </div>
       </div>
 
+      <!-- NEW: Hotel field added here -->
       <div class="row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div>
+          <label for="hotel">Hotel</label>
+          <input id="hotel" placeholder="The Grand Hotel"/>
+        </div>
         <div>
           <label for="startDate">Start Date</label>
           <input id="startDate" type="date"/>
         </div>
+      </div>
+
+      <div class="row" style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
         <div>
           <label for="endDate">End Date</label>
           <input id="endDate" type="date"/>
@@ -115,6 +123,7 @@
         cost: Number(document.getElementById('cost').value || 0),
         people: Number(document.getElementById('people').value || 0),
         transport: document.getElementById('transport').value.trim(),
+        hotel: document.getElementById('hotel').value.trim(), // ADDED: Hotel field
         startDate: document.getElementById('startDate').value,
         endDate: document.getElementById('endDate').value,
         points: document.getElementById('points').value.trim(),
@@ -140,6 +149,7 @@
         document.getElementById('cost').value = '';
         document.getElementById('people').value = '';
         document.getElementById('transport').value = '';
+        document.getElementById('hotel').value = ''; // ADDED: Clear hotel field
         document.getElementById('startDate').value = '';
         document.getElementById('endDate').value = '';
         document.getElementById('points').value = '';
