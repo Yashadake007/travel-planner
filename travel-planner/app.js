@@ -90,6 +90,7 @@ async function loadAllSpots(){
     const q = query(collection(db,"spots"), orderBy("createdAt","desc"));
     const snap = await getDocs(q);
     allSpots = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    // console.log("All spots loaded:", allSpots); // Debugging line
   }catch(e){
     console.error("Error loading all spots:", e);
     allSpots = [];
@@ -104,6 +105,7 @@ async function filterSpotsForUser(){
   if (!user) {
     // If no user, show all spots (or a subset, depending on desired behavior)
     currentSpots = [...allSpots];
+    // console.log("No user, showing all spots:", currentSpots); // Debugging line
     return;
   }
 
@@ -116,6 +118,7 @@ async function filterSpotsForUser(){
 
     // Filter out spots the user has already made a choice on
     currentSpots = allSpots.filter(spot => !chosenSpotIds.has(spot.id));
+    // console.log("Spots filtered for user:", currentSpots); // Debugging line
 
   } catch (e) {
     console.error("Error filtering spots for user:", e);
@@ -153,6 +156,7 @@ function renderCurrentSpot(){
       <p><b>Points:</b> ${esc(s.points || "-")}</p>
       <p><b>Dates:</b> ${esc(s.startDate || "-")} → ${esc(s.endDate || "-")}</p>
       <p><b>Transport:</b> ${esc(s.transport || "-")}</p>
+      <p><b>Hotel:</b> ${esc(s.hotel || "-")}</p> <!-- ADDED: Display Hotel field -->
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="pill" id="btn-spot-people-int">People Interested ❤️</button>
         <button class="pill" id="btn-spot-people-no">People Not Interested 💔</button>
@@ -264,7 +268,7 @@ async function performAction(kind, card){
       historyIndex.push(currentSpotIndex); // Save current index to history
       currentSpotIndex = Math.min(currentSpots.length, currentSpotIndex + 1); // Move to next spot
       // After a like/dislike/skip, re-filter spots to remove the current one
-      await filterSpotsForUser();
+      await filterSpotsForUser(); // Re-filter to remove the chosen spot
     }
     renderCurrentSpot(); // Render the new current spot
   };
