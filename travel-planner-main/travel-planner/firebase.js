@@ -25,5 +25,6 @@ export const provider = new GoogleAuthProvider();
 export {
   collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, writeBatch, FieldValue,
-  onAuthStateChanged, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword
+  onAuthStateChanged, signInWithPopup, signOut, onSnapshot, signInWithEmailAndPassword, createUserWithEmailAndPassword
 };
+
