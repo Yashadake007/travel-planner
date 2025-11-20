@@ -11,9 +11,11 @@
     <h2>Login</h2>
     <form id="form" class="form">
       <label for="email">Email</label>
-      <input id="email" type="email" placeholder="Email" required><br>
+      <input id="email" type="email" placeholder="Email" required>
+      <!-- FIX: Removed unnecessary <br> -->
       <label for="pw">Password</label>
-      <input id="pw" type="password" placeholder="Password" required><br>
+      <input id="pw" type="password" placeholder="Password" required>
+      <!-- FIX: Removed unnecessary <br> -->
       <button class="primary-btn" type="submit">Login</button>
     </form>
     <p class="muted" style="text-align:center; margin-top: 20px;">
@@ -32,10 +34,10 @@
       const pw = document.getElementById('pw').value;
       try{
         await signInWithEmailAndPassword(auth, email, pw);
-        location.href='index.html';
+        window.location.href = 'index.html';
       }catch(err){
         alert("Login failed: " + err.message);
-        console.error("Login error:", err);
+        console.error("Login failed:", err);
       }
     });
   </script>
