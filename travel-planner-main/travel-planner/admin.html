@@ -25,106 +25,146 @@
       onAuthStateChanged
     } from "./firebase.js";
 
-    // IMPORTANT: Put your admin email(s) here
+    // 🔴 IMPORTANT: Put your actual admin email(s) here for security 🔴
     const ALLOWED_ADMIN_EMAILS = ["you@example.com", "admin@example.com"]; // Replace with actual admin emails
 
     onAuthStateChanged(auth, async u=>{
       if(!u){
         alert('Login required.');
-        location.href='login.html'; // Redirect to general login
+        location.href='login.html';
         return;
       }
       if(!ALLOWED_ADMIN_EMAILS.includes(u.email)){
         alert('Not authorized as admin.');
-        location.href='index.html';
+        location.href='index.html'; // Redirect to home for unauthorized users
         return;
       }
-      document.getElementById('admin-ui').style.display='block';
-      await loadSpots();
-    });
 
-    async function loadSpots(){
-      const cont = document.getElementById('spots');
-      cont.innerHTML = 'Loading…';
-      try {
-        const q = query(collection(db,'spots'), orderBy('createdAt','desc'));
-        const snap = await getDocs(q);
-        if (snap.empty){
-          cont.innerHTML = '<p class="muted">No spots yet.</p>';
-          return;
+      // If user is authorized, show the UI
+      document.getElementById('admin-ui').style.display = 'block';
+
+      // --- SPOT LOADING LOGIC ---
+      const spotsCol = collection(db, 'spots');
+      const q = query(spotsCol, orderBy('createdAt', 'desc'));
+      const spotsDiv = document.getElementById('spots');
+
+      const renderSpots = async () => {
+        spotsDiv.innerHTML = "Loading spots...";
+        try {
+          const snapshot = await getDocs(q);
+          if(snapshot.empty){
+            spotsDiv.innerHTML = "<p class='muted'>No spots found in the database.</p>";
+            return;
+          }
+
+          const table = document.createElement('table');
+          table.className = 'table';
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Creator</th>
+                <th>Created At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          `;
+          const tbody = table.querySelector('tbody');
+          let i = 0;
+
+          snapshot.docs.forEach(d => {
+            const spot = d.data();
+            const row = tbody.insertRow();
+            row.innerHTML = `
+              <td>${++i}</td>
+              <td>${spot.name}</td>
+              <td>${spot.creatorEmail || spot.createdBy}</td>
+              <td>${spot.createdAt ? new Date(spot.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+              <td><button class="danger-btn" data-id="${d.id}">Delete</button></td>
+            `;
+
+            // Add delete listener
+            row.querySelector('.danger-btn').onclick = async (e) => {
+              if (confirm('Are you sure you want to delete this spot and all related choices?')) {
+                const spotId = e.target.dataset.id;
+                await deleteSpot(spotId);
+              }
+            };
+          });
+
+          spotsDiv.innerHTML = '';
+          spotsDiv.appendChild(table);
+
+        } catch (e) {
+          console.error("Error rendering spots:", e);
+          spotsDiv.innerHTML = `<p class='muted'>Error loading spots: ${e.message}</p>`;
         }
-        const list = document.createElement('div');
-        snap.forEach(d=>{
-          const s = d.data();
-          const div = document.createElement('div');
-          div.className='admin-list-item'; // Use a specific class for admin list items
-          div.innerHTML = `
-            <div>
-              <strong>${s.name||'(no name)'}</strong>
-              <div class="muted" style="font-size:12px">${s.location||s.city||''}</div>
-              <div class="muted" style="font-size:10px">Created by: ${s.creatorEmail || s.createdBy || 'N/A'}</div>
-            </div>
-            <div>
-              <button class="ghost-btn danger" data-id="${d.id}" onclick="delSpot('${d.id}')">Delete</button>
-            </div>`;
-          list.appendChild(div);
+      };
+      
+      const deleteSpot = async (spotId) => {
+          try {
+              // 1. Delete the spot document
+              await deleteDoc(doc(db, 'spots', spotId));
+
+              // 2. Delete all related user choices (optional, but good cleanup)
+              const choicesQuery = query(collection(db, 'choices'), where('spotId', '==', spotId));
+              const choiceDocs = await getDocs(choicesQuery);
+              
+              const batch = writeBatch(db);
+              choiceDocs.docs.forEach(d => {
+                  batch.delete(d.ref);
+              });
+              await batch.commit();
+
+              alert(`Spot ${spotId} and all associated choices deleted successfully.`);
+              // Re-render the list after deletion
+              await renderSpots();
+          } catch (e) {
+              console.error("Deletion failed:", e);
+              alert("Deletion failed: " + e.message);
+          }
+      };
+
+      // Initial render
+      await renderSpots();
+
+      // --- SEED DATA LOGIC ---
+      document.getElementById('seed').onclick = async ()=>{
+        if (!confirm("Are you sure you want to seed 5 sample spots? This is irreversible.")) return;
+
+        const batch = writeBatch(db);
+        const col = collection(db, 'spots');
+
+        const seedData = [
+            {name:'Ladakh Bike Trip', location:'Leh-Ladakh', imageURL:'https://picsum.photos/seed/ladakh/800/500', cost:25000, people:5, points:'Mountains, Lakes, Adventure', startDate:'2025-06-01', endDate:'2025-06-15', transport:'Bike'},
+            {name:'Goa Beach Break', location:'Goa', imageURL:'https://picsum.photos/seed/goa/800/500', cost:8000, people:4, points:'Beaches, Parties, Food', startDate:'2024-12-24', endDate:'2024-12-30', transport:'Flight'},
+            {name:'Manali Snow Trek', location:'Himachal Pradesh', imageURL:'https://picsum.photos/seed/manali/800/500', cost:12000, people:4, points:'Snow, Trek, Cafe', startDate:'2024-12-10', endDate:'2024-12-14', transport:'Bus'},
+            {name:'Jaipur Heritage', location:'Jaipur', imageURL:'https://picsum.photos/seed/jaipur/800/500', cost:9000, people:3, points:'Forts, Food, Markets', startDate:'2024-11-05', endDate:'2024-11-07', transport:'Train'},
+            {name:'Kerala Backwaters', location:'Alleppey', imageURL:'https://picsum.photos/seed/kerala/800/500', cost:18000, people:2, points:'Houseboats, Serenity, Nature', startDate:'2025-01-20', endDate:'2025-01-25', transport:'Flight'},
+            {name:'Darjeeling Tea Gardens', location:'Darjeeling', imageURL:'https://picsum.photos/seed/darjeeling/800/500', cost:10000, people:3, points:'Tea Estates, Toy Train, Kanchenjunga', startDate:'2025-03-15', endDate:'2025-03-19', transport:'Train'}
+        ];
+
+        seedData.forEach(s=>{
+          const newDocRef = doc(col); // Create a new document reference with an auto-generated ID
+          batch.set(newDocRef, {
+            ...s,
+            createdAt: serverTimestamp(),
+            createdBy: u.uid,
+            creatorEmail: u.email
+          });
         });
-        cont.innerHTML='';
-        cont.appendChild(list);
-      } catch (e) {
-        console.error("Error loading spots:", e);
-        cont.innerHTML = `<p class="muted">Error loading spots: ${e.message}</p>`;
-      }
-    }
 
-    // Make delSpot globally accessible for onclick
-    window.delSpot = async function(id){
-      if(!confirm('Are you sure you want to delete this spot? This action cannot be undone.')) return;
-      try {
-        await deleteDoc(doc(db, 'spots', id));
-        alert('Spot deleted successfully!');
-        await loadSpots(); // Reload the list
-      } catch (e) {
-        console.error("Error deleting spot:", e);
-        alert('Error deleting spot: ' + e.message);
-      }
-    };
-
-    document.getElementById('seed').addEventListener('click', async ()=>{
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        alert('Please login as an admin first.');
-        return;
-      }
-
-      const batch = writeBatch(db);
-      const col = collection(db, 'spots');
-      const seedData = [
-        {name:'Goa Beach Escape', location:'Goa', imageURL:'https://picsum.photos/seed/goa/800/500', cost:15000, people:2, points:'Sunset, Seafood, Shacks', startDate:'2024-10-01', endDate:'2024-10-04', transport:'Flight'},
-        {name:'Manali Hills', location:'Manali', imageURL:'https://picsum.photos/seed/manali/800/500', cost:12000, people:4, points:'Snow, Trek, Cafe', startDate:'2024-12-10', endDate:'2024-12-14', transport:'Bus'},
-        {name:'Jaipur Heritage', location:'Jaipur', imageURL:'https://picsum.photos/seed/jaipur/800/500', cost:9000, people:3, points:'Forts, Food, Markets', startDate:'2024-11-05', endDate:'2024-11-07', transport:'Train'},
-        {name:'Kerala Backwaters', location:'Alleppey', imageURL:'https://picsum.photos/seed/kerala/800/500', cost:18000, people:2, points:'Houseboats, Serenity, Nature', startDate:'2025-01-20', endDate:'2025-01-25', transport:'Flight'},
-        {name:'Darjeeling Tea Gardens', location:'Darjeeling', imageURL:'https://picsum.photos/seed/darjeeling/800/500', cost:10000, people:3, points:'Tea Estates, Toy Train, Kanchenjunga', startDate:'2025-03-15', endDate:'2025-03-19', transport:'Train'}
-      ];
-
-      seedData.forEach(s=>{
-        const newDocRef = doc(col); // Create a new document reference with an auto-generated ID
-        batch.set(newDocRef, {
-          ...s,
-          createdAt: serverTimestamp(),
-          createdBy: currentUser.uid,
-          creatorEmail: currentUser.email
-        });
-      });
-
-      try {
-        await batch.commit();
-        alert(`Seeded ${seedData.length} sample spots.`);
-        await loadSpots(); // Reload the list
-      } catch (e) {
-        console.error("Error seeding spots:", e);
-        alert('Error seeding spots: ' + e.message);
-      }
+        try {
+          await batch.commit();
+          alert("Sample data successfully seeded (6 spots added)!");
+          await renderSpots();
+        } catch (e) {
+          console.error("Seeding failed:", e);
+          alert("Seeding failed: " + e.message);
+        }
+      };
     });
   </script>
 </body>
