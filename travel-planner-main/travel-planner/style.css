@@ -466,3 +466,28 @@ html, body {
     margin-bottom: 10px;
   }
 }
+/* --- Custom Notification Style (For app.js) --- */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px); /* Start off-screen */
+  background-color: var(--primary-btn-bg);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  z-index: 10000;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.notification.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0); /* Slide up into view */
+}
+
+/* Add some animation for the snap-back to look smooth */
+.card.snap-back {
+  transition: transform 0.3s ease-out !important;
+}
