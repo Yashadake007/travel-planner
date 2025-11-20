@@ -1,399 +1,545 @@
-// MultipleFiles/app.js
 import {
   auth, db, provider,
-  collection, doc, getDoc, getDocs, addDoc, setDoc,
-  query, where, orderBy, serverTimestamp, onSnapshot,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc,
+  query, where, orderBy, limit, serverTimestamp, onSnapshot,
   onAuthStateChanged, signInWithPopup, signOut
 } from "./firebase.js";
+
+/* ---------------- State Variables & Helper Functions ---------------- */
+let user = null; // Current authenticated user
+let spots = [];  // All spots available for swiping
+let currentSpotIndex = 0;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+let listUnsub = null;   // To store unsubscribe function for the user list modal
+let peopleUnsub = null; // To store unsubscribe function for the people list modal
+let spotUnsub = null;   // To store unsubscribe function for the main spot list
+
+// Basic HTML escaping helper
+const esc = (html) => {
+  return html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+};
+
+// Simple custom notification (replacing alert())
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    setTimeout(() => {
+        notification.classList.remove('show');
+        notification.addEventListener('transitionend', () => notification.remove());
+    }, 3000);
+}
 
 /* ---------------- DOM Elements ---------------- */
 const stackEl = document.getElementById("card-stack");
 const emptyEl = document.getElementById("empty-state");
 
-// Updated login button references
+// Login/Logout elements
 const loginOptionsDiv = document.getElementById("login-options");
 const btnLoginGoogle  = document.getElementById("btn-login-google");
 const btnLogout = document.getElementById("btn-logout");
 const btnAdmin  = document.getElementById("btn-admin");
 
+// Action buttons
 const btnLike   = document.getElementById("btn-like");
 const btnNope   = document.getElementById("btn-nope");
 const btnSkip   = document.getElementById("btn-skip");
 const btnReview = document.getElementById("btn-review");
 
+// List launchers
 const openInterested = document.getElementById("open-interested");
 const openNot        = document.getElementById("open-not");
 const openSkipped    = document.getElementById("open-skipped");
 
+// User List Modal elements
 const listBack  = document.getElementById("list-backdrop");
 const listTitle = document.getElementById("list-title");
 const listBody  = document.getElementById("list-body");
-document.getElementById("list-close").onclick = ()=> listBack.style.display="none";
+document.getElementById("list-close").onclick = ()=> {
+    listBack.style.display="none";
+    if(listUnsub) { listUnsub(); listUnsub = null; } // CRITICAL FIX: Unsubscribe on close
+};
 
+// People List Modal elements
 const peopleBack  = document.getElementById("people-backdrop");
 const peopleTitle = document.getElementById("people-title");
 const peopleBody  = document.getElementById("people-body");
-document.getElementById("people-close").onclick = ()=> peopleBack.style.display="none";
-
-/* ---------------- State Variables ---------------- */
-let user = null;
-let allSpots = []; // All spots loaded from Firestore
-let currentSpots = []; // Spots filtered based on user choices
-let currentSpotIndex = 0;
-let historyIndex = []; // To track previous spot indices for 'review'
-
-/* ---------------- Helper Function ---------------- */
-// Escapes HTML entities to prevent XSS
-const esc = (s='') => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+document.getElementById("people-close").onclick = ()=> {
+    peopleBack.style.display="none";
+    if(peopleUnsub) { peopleUnsub(); peopleUnsub = null; } // CRITICAL FIX: Unsubscribe on close
+};
 
 /* ---------------- Authentication ---------------- */
-btnLoginGoogle.onclick  = async ()=> {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error("Google Sign-in Error:", error);
-    alert("Failed to sign in with Google: " + error.message);
-  }
-};
-btnLogout.onclick = async ()=> {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error("Sign-out Error:", error);
-    alert("Failed to sign out: " + error.message);
-  }
-};
-btnAdmin.onclick  = ()=> {
-  // Navigate to admin login page
-  location.href = 'admin-login.html';
-};
 
-onAuthStateChanged(auth, async (u)=>{
-  user = u || null;
+onAuthStateChanged(auth, async u => {
+  user = u;
   if (user) {
-    loginOptionsDiv.style.display = "none"; // Hide login buttons
-    btnLogout.style.display = ""; // Show logout button
+    // Show user-specific UI
+    loginOptionsDiv.style.display = "none";
+    btnLogout.style.display = "block";
+    btnAdmin.style.display = "block"; // Assuming all logged in users see the admin button
+
+    // Load spots only after user is authenticated
+    if (!spotUnsub) {
+        loadSpots();
+    }
   } else {
-    loginOptionsDiv.style.display = "flex"; // Show login buttons
-    btnLogout.style.display = "none"; // Hide logout button
+    // Show anonymous UI
+    loginOptionsDiv.style.display = "flex";
+    btnLogout.style.display = "none";
+    btnAdmin.style.display = "none";
+    
+    // Clear spots and unsubscribe
+    spots = [];
+    currentSpotIndex = 0;
+    if (spotUnsub) {
+        spotUnsub(); 
+        spotUnsub = null;
+    }
+    renderCurrentSpot();
   }
-  // Load all spots and then filter based on user choices
-  await loadAllSpots();
-  await filterSpotsForUser();
-  renderCurrentSpot();
 });
 
-/* ---------------- Data Loading & Filtering ---------------- */
-async function loadAllSpots(){
-  try{
-    // Fetch all spots, ordered by creation date (newest first)
-    const q = query(collection(db,"spots"), orderBy("createdAt","desc"));
-    const snap = await getDocs(q);
-    allSpots = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-  }catch(e){
-    console.error("Error loading all spots:", e);
-    allSpots = [];
-  }
-}
+btnLogout.onclick = async () => {
+  await signOut(auth);
+};
 
-async function filterSpotsForUser(){
-  currentSpots = [];
-  currentSpotIndex = 0;
-  historyIndex = [];
-
-  if (!user) {
-    // If no user, show all spots (or a subset, depending on desired behavior)
-    currentSpots = [...allSpots];
-    return;
-  }
-
+btnLoginGoogle.onclick = async () => {
   try {
-    // Get all choices made by the current user
-    const qChoices = query(collection(db, "userChoices"), where("userId", "==", user.uid));
-    const choicesSnap = await getDocs(qChoices);
-    const chosenSpotIds = new Set();
-    choicesSnap.forEach(d => chosenSpotIds.add(d.data().spotId));
-
-    // Filter out spots the user has already made a choice on
-    currentSpots = allSpots.filter(spot => !chosenSpotIds.has(spot.id));
-
-  } catch (e) {
-    console.error("Error filtering spots for user:", e);
-    // Fallback: show all spots if filtering fails
-    currentSpots = [...allSpots];
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error("Google sign in failed:", err);
+    showNotification("Login failed: " + err.message);
   }
+};
+
+/* ---------------- Core App Logic (Swiping) ---------------- */
+
+async function loadSpots() {
+  if (!user) return;
+  
+  // 1. Get IDs of spots the user has already seen (interested, not_interested, skipped, review)
+  const choicesRef = collection(db, 'choices');
+  const qChoices = query(choicesRef, where('userId', '==', user.uid));
+  
+  const choicesSnapshot = await getDocs(qChoices);
+  const seenSpotIds = choicesSnapshot.docs.map(doc => doc.data().spotId);
+
+  // 2. Fetch all spots that have NOT been seen
+  const spotsRef = collection(db, 'spots');
+  let qSpots = query(spotsRef, orderBy('createdAt', 'desc'));
+
+  // NOTE: Firestore doesn't support 'where not in' for arrays larger than 10.
+  // For simplicity here, we'll fetch all and filter in memory, which is inefficient 
+  // but works for small datasets. For large scale, you'd need a different data structure.
+  
+  // CRITICAL FIX: Use onSnapshot for real-time list
+  if (spotUnsub) spotUnsub(); // Unsubscribe existing listener
+
+  spotUnsub = onSnapshot(qSpots, (snap) => {
+    const allSpots = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filter out spots already seen by the user
+    spots = allSpots.filter(spot => !seenSpotIds.includes(spot.id));
+    
+    currentSpotIndex = 0;
+    renderCurrentSpot();
+  }, (err) => {
+    console.error("Error loading spots:", err);
+    showNotification("Error loading spots: " + err.message);
+  });
 }
 
-/* ---------------- UI: Card Render & Swipe Logic ---------------- */
-function renderCurrentSpot(){
-  stackEl.innerHTML = ""; // Clear previous card
-  if (!currentSpots.length || currentSpotIndex >= currentSpots.length){
+function renderCurrentSpot() {
+  stackEl.innerHTML = "";
+  emptyEl.style.display = "none";
+
+  if (spots.length === 0 || currentSpotIndex >= spots.length) {
     emptyEl.style.display = "block";
     return;
   }
-  emptyEl.style.display = "none";
 
-  const s = currentSpots[currentSpotIndex];
-  const img = s.imageURL || s.image || "";
-
+  const spot = spots[currentSpotIndex];
   const card = document.createElement("div");
-  card.className = "trip-card";
+  card.className = "card";
   card.id = "active-card";
-  card.innerHTML = `
-    <div class="overlay like">❤️</div>
-    <div class="overlay dislike">💔</div>
-    <div class="overlay skip">⏩</div>
-    <div class="overlay review">🔄</div>
+  card.dataset.spotId = spot.id;
+  card.dataset.index = currentSpotIndex;
 
-    <img src="${esc(img)}" alt="${esc(s.name||'Spot')}" onerror="this.style.display='none'">
-    <div class="content">
-      <h3>${esc(s.name||"Untitled spot")}</h3>
-      <p><b>Cost:</b> ₹${esc(s.cost ?? "-")}</p>
-      <p><b>People:</b> ${esc(s.people ?? "-")}</p>
-      <p><b>Points:</b> ${esc(s.points || "-")}</p>
-      <p><b>Dates:</b> ${esc(s.startDate || "-")} → ${esc(s.endDate || "-")}</p>
-      <p><b>Transport:</b> ${esc(s.transport || "-")}</p>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="pill" id="btn-spot-people-int">People Interested ❤️</button>
-        <button class="pill" id="btn-spot-people-no">People Not Interested 💔</button>
-        <button class="pill" id="btn-spot-people-skip">People Skipped ⏩</button>
-      </div>
+  // Helper elements for drag feedback
+  const oLike = document.createElement("div");
+  oLike.className = "overlay overlay-like";
+  oLike.textContent = "INTERESTED";
+  
+  const oNope = document.createElement("div");
+  oNope.className = "overlay overlay-nope";
+  oNope.textContent = "NOT INTERESTED";
+  
+  const oSkip = document.createElement("div");
+  oSkip.className = "overlay overlay-skip";
+  oSkip.textContent = "SKIP";
+
+  const oReview = document.createElement("div");
+  oReview.className = "overlay overlay-review";
+  oReview.textContent = "REVIEW LATER";
+
+  card.innerHTML = `
+    <div class="card-image" style="background-image:url('${esc(spot.imageURL)}');"></div>
+    <div class="card-content">
+      <h3>${esc(spot.name)} <span class="location">${esc(spot.location)}</span></h3>
+      <p><strong>Duration:</strong> ${esc(spot.startDate)} to ${esc(spot.endDate)}</p>
+      <p><strong>Cost:</strong> Approx. ${esc(spot.cost)} | <strong>People:</strong> ${esc(spot.people)}</p>
+      <p><strong>Key Points:</strong> ${esc(spot.points)}</p>
+      <p class="muted">Transport: ${esc(spot.transport)}</p>
+      <button class="list-link" data-spot-id="${spot.id}" data-choice="interested">
+        Who's interested?
+      </button>
     </div>
   `;
-  stackEl.appendChild(card);
-  attachSwipe(card);
+  card.appendChild(oLike);
+  card.appendChild(oNope);
+  card.appendChild(oSkip);
+  card.appendChild(oReview);
 
-  // Attach event listeners for "People" buttons for the current spot
-  document.getElementById("btn-spot-people-int").onclick = ()=> openPeopleForSpot("interested");
-  document.getElementById("btn-spot-people-no").onclick  = ()=> openPeopleForSpot("not_interested");
-  document.getElementById("btn-spot-people-skip").onclick= ()=> openPeopleForSpot("skipped");
+  stackEl.appendChild(card);
+  
+  // Add listeners for the 'Who's interested' button on the new card
+  const listLink = card.querySelector('.list-link');
+  listLink.onclick = () => openPeopleList(spot.id, 'interested');
+
+  // Set up dragging listeners
+  setupCardDragging(card, oLike, oNope, oSkip, oReview);
 }
 
-function attachSwipe(card){
-  let startX = 0, startY = 0, isDragging = false;
-  const oLike   = card.querySelector(".overlay.like");
-  const oNope   = card.querySelector(".overlay.dislike");
-  const oSkip   = card.querySelector(".overlay.skip");
-  const oReview = card.querySelector(".overlay.review");
+function performAction(choice, card) {
+  if (!user) {
+    showNotification("Please log in to make a choice.");
+    return;
+  }
+  
+  const spotId = card.dataset.spotId;
+  
+  // 1. Save the user's choice to Firestore
+  const choicesRef = collection(db, 'choices');
+  const choiceDocRef = doc(choicesRef, `${user.uid}_${spotId}`); // Unique ID for user-spot pair
+  
+  const choiceData = {
+      userId: user.uid,
+      userEmail: user.email,
+      spotId: spotId,
+      choice: choice,
+      timestamp: serverTimestamp()
+  };
+  
+  // Use setDoc to create or overwrite the choice
+  setDoc(choiceDocRef, choiceData)
+    .then(() => {
+      // 2. Animate the swipe and move to the next spot
+      card.classList.remove("snap-back");
+      let angle = 0;
+      let x = 0;
+      let y = 0;
+      
+      switch(choice) {
+        case "interested": // Right
+          angle = 15; x = window.innerWidth;
+          break;
+        case "not_interested": // Left
+          angle = -15; x = -window.innerWidth;
+          break;
+        case "skipped": // Up
+          y = -window.innerHeight;
+          break;
+        case "review": // Down
+          y = window.innerHeight;
+          break;
+      }
+      
+      card.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out';
+      card.style.transform = `translate(${x}px, ${y}px) rotate(${angle}deg)`;
+      card.style.opacity = 0;
+      
+      // Remove card after animation and render next
+      setTimeout(() => {
+        card.remove();
+        currentSpotIndex++;
+        renderCurrentSpot();
+      }, 400);
+
+    })
+    .catch(err => {
+      console.error("Error saving choice:", err);
+      showNotification("Error saving choice: " + err.message);
+    });
+}
+
+/* ---------------- Dragging Functions ---------------- */
+
+// Declared outside to prevent function re-creation inside renderCurrentSpot
+let activeCard = null;
+let oLike = null;
+let oNope = null;
+let oSkip = null;
+let oReview = null;
+
+const drag = (e) => {
+  if (!isDragging || !activeCard) return;
+  e.preventDefault(); // Prevent text selection, etc.
+
+  const currentX = e.pageX || e.touches[0].pageX;
+  const currentY = e.pageY || e.touches[0].pageY;
+  const deltaX = currentX - startX;
+  const deltaY = currentY - startY;
+
+  // Rotation based on horizontal drag
+  const rotation = deltaX / 20;
+  
+  activeCard.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${rotation}deg)`;
+
+  // Update opacity for overlays
+  const opacityHorizontal = Math.min(1, Math.abs(deltaX) / 100);
+  const opacityVertical = Math.min(1, Math.abs(deltaY) / 100);
+  
+  if (opacityHorizontal > opacityVertical) {
+    // Horizontal swipe dominant
+    oSkip.style.opacity = oReview.style.opacity = "0";
+    if (deltaX > 0) { // Right swipe (Like)
+      oLike.style.opacity = opacityHorizontal;
+      oNope.style.opacity = "0";
+    } else { // Left swipe (Nope)
+      oNope.style.opacity = opacityHorizontal;
+      oLike.style.opacity = "0";
+    }
+  } else {
+    // Vertical swipe dominant
+    oLike.style.opacity = oNope.style.opacity = "0";
+    if (deltaY < 0) { // Up swipe (Skip)
+      oSkip.style.opacity = opacityVertical;
+      oReview.style.opacity = "0";
+    } else { // Down swipe (Review)
+      oReview.style.opacity = opacityVertical;
+      oSkip.style.opacity = "0";
+    }
+  }
+};
+
+const endDrag = (e) => {
+  if (!isDragging || !activeCard) return;
+  isDragging = false;
+  
+  // CRITICAL FIX: Always remove global listeners when drag ends
+  window.removeEventListener("pointermove", drag, {passive: true});
+  window.removeEventListener("pointerup", endDrag, {passive: true});
+  
+  activeCard.classList.remove("no-transition"); // Re-enable transition for snap-back
+
+  const currentX = e.pageX || (e.changedTouches && e.changedTouches[0].pageX) || startX;
+  const currentY = e.pageY || (e.changedTouches && e.changedTouches[0].pageY) || startY;
+  const deltaX = currentX - startX;
+  const deltaY = currentY - startY;
+
+  const performThreshold = 110;
+  
+  let action = null;
+  
+  // Determine action based on max delta
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX > performThreshold) action = "interested";
+      else if (deltaX < -performThreshold) action = "not_interested";
+  } else {
+      if (deltaY < -performThreshold) action = "skipped";
+      else if (deltaY > performThreshold) action = "review";
+  }
+
+  if (action) {
+    // Action was performed
+    performAction(action, activeCard);
+  } else {
+    // No action, snap back
+    activeCard.classList.add("snap-back");
+    activeCard.style.transform = "";
+    oLike.style.opacity = oNope.style.opacity = oSkip.style.opacity = oReview.style.opacity = "0";
+  }
+  
+  // Reset active variables
+  activeCard = null;
+  oLike = oNope = oSkip = oReview = null;
+};
+
+
+function setupCardDragging(card, likeEl, nopeEl, skipEl, reviewEl) {
+  // Pass the overlay elements to the global scope for use in drag()
+  oLike = likeEl;
+  oNope = nopeEl;
+  oSkip = skipEl;
+  oReview = reviewEl;
 
   const startDrag = (e) => {
+    // Only drag with primary mouse button (0) or touch
+    if (e.buttons > 1 || (e.type === 'pointerdown' && e.button !== 0 && !e.touches)) return;
+    
     isDragging = true;
-    startX = e.clientX ?? e.touches[0].clientX;
-    startY = e.clientY ?? e.touches[0].clientY;
-    card.classList.remove("snap-back"); // Remove transition for smooth dragging
-  };
+    activeCard = card;
+    
+    // Store initial touch/cursor position
+    startX = e.pageX || e.touches[0].pageX;
+    startY = e.pageY || e.touches[0].pageY;
 
-  const drag = (e) => {
-    if (!isDragging) return;
-    const currentX = e.clientX ?? e.touches[0].clientX;
-    const currentY = e.clientY ?? e.touches[0].clientY;
-    const deltaX = currentX - startX;
-    const deltaY = currentY - startY;
-
-    card.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${deltaX / 12}deg)`;
-
-    // Update overlay opacity based on swipe direction
-    oLike.style.opacity   = deltaX > 50 ? "1" : "0";
-    oNope.style.opacity   = deltaX < -50 ? "1" : "0";
-    oSkip.style.opacity   = deltaY < -50 ? "1" : "0";
-    oReview.style.opacity = deltaY > 50 ? "1" : "0";
-  };
-
-  const endDrag = (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-    const currentX = e.clientX ?? e.changedTouches[0].clientX;
-    const currentY = e.clientY ?? e.changedTouches[0].clientY;
-    const deltaX = currentX - startX;
-    const deltaY = currentY - startY;
-
-    // Determine action based on swipe threshold
-    if (deltaX > 110)  return performAction("interested", card);
-    if (deltaX < -110) return performAction("not_interested", card);
-    if (deltaY < -110) return performAction("skipped", card);
-    if (deltaY > 110)  return performAction("review", card);
-
-    // If no action, snap back
-    card.classList.add("snap-back");
-    card.style.transform = "";
-    oLike.style.opacity = oNope.style.opacity = oSkip.style.opacity = oReview.style.opacity = "0";
+    card.classList.remove("snap-back");
+    card.classList.add("no-transition");
+    
+    // CRITICAL FIX: Add listeners to the window once, and remove them in endDrag
+    window.addEventListener("pointermove", drag, {passive: true});
+    window.addEventListener("pointerup", endDrag, {passive: true});
   };
 
   card.addEventListener("pointerdown", startDrag, {passive: true});
-  window.addEventListener("pointermove", drag, {passive: true});
-  window.addEventListener("pointerup", endDrag, {passive: true});
+  card.addEventListener("touchstart", startDrag, {passive: true});
 }
 
-async function performAction(kind, card){
-  const s = currentSpots[currentSpotIndex];
-  if (!s?.id) return; // No spot to act on
+/* ---------------- List Modals & Handlers ---------------- */
 
-  // Add exit animation class
-  if (kind === "interested") card.classList.add("exit-right");
-  if (kind === "not_interested") card.classList.add("exit-left");
-  if (kind === "skipped") card.classList.add("exit-up");
-  if (kind === "review") card.classList.add("exit-down");
+// Handlers for the small list launcher buttons
+openInterested.onclick = ()=> openUserList("interested", "My Interested Spots");
+openNot.onclick        = ()=> openUserList("not_interested", "My Not Interested Spots");
+openSkipped.onclick    = ()=> openUserList("skipped", "My Skipped Spots");
 
-  // Persist choice to Firestore if not a 'review' action and user is logged in
-  if (kind !== "review" && user) {
-    try {
-      await setDoc(doc(db, "userChoices", `${user.uid}_${s.id}`), {
-        userId: user.uid,
-        spotId: s.id,
-        choice: kind,
-        timestamp: serverTimestamp(),
-        userName: user.displayName || user.email, // Store user info for people list
-        userEmail: user.email
-      });
-      console.log(`Choice '${kind}' saved for spot ${s.name}`);
-    } catch (e) {
-      console.error("Failed to save choice:", e);
-      alert("Failed to save your choice. Check console for details.");
-    }
-  }
+// Generic function to open the user's personal list
+function openUserList(choice, title){
+    if (!user){ showNotification('Login required to view your list.'); return; }
+    
+    listBack.style.display="flex";
+    listTitle.textContent = title;
+    listBody.innerHTML = "Loading...";
 
-  // Logic to move to the next/previous card
-  const afterAnimation = async () => {
-    if (kind === "review") {
-      if (historyIndex.length > 0) {
-        currentSpotIndex = historyIndex.pop(); // Go back to previous spot
-      } else {
-        currentSpotIndex = Math.max(0, currentSpotIndex - 1); // Just go back one if no history
-      }
-    } else {
-      historyIndex.push(currentSpotIndex); // Save current index to history
-      currentSpotIndex = Math.min(currentSpots.length, currentSpotIndex + 1); // Move to next spot
-      // After a like/dislike/skip, re-filter spots to remove the current one
-      await filterSpotsForUser();
-    }
-    renderCurrentSpot(); // Render the new current spot
-  };
+    // CRITICAL FIX: Unsubscribe from the previous listener before setting up a new one
+    if (listUnsub) listUnsub();
 
-  // Ensure the animation completes before rendering the next card
-  let animationDone = false;
-  card.addEventListener("transitionend", () => {
-    if (!animationDone) {
-      animationDone = true;
-      afterAnimation();
-    }
-  }, {once: true});
+    const choicesRef = collection(db, 'choices');
+    const qChoices = query(
+        choicesRef, 
+        where('userId', '==', user.uid),
+        where('choice', '==', choice),
+        orderBy('timestamp', 'desc')
+    );
 
-  // Fallback for transitionend not firing (e.g., if element is removed too quickly)
-  setTimeout(() => {
-    if (!animationDone) {
-      animationDone = true;
-      afterAnimation();
-    }
-  }, 300); // A bit longer than the CSS transition duration
-}
+    // Listen for real-time updates to user's choices
+    listUnsub = onSnapshot(qChoices, async (snap)=>{ // Store the unsub function
+        if(snap.empty){
+            listBody.innerHTML = `<p class="empty">You have no spots marked as ${choice.replace('_',' ')}.</p>`;
+            return;
+        }
 
-/* --------------- List Modals (My Interested/Not Interested/Skipped) --------------- */
-openInterested.onclick = () => openUserList("interested");
-openNot.onclick        = () => openUserList("not_interested");
-openSkipped.onclick    = () => openUserList("skipped");
+        const spotIds = snap.docs.map(d=>d.data().spotId);
+        
+        // Fetch the actual spot data for these IDs
+        const spotDetails = await Promise.all(spotIds.map(id => getDoc(doc(db, 'spots', id))));
 
-function openUserList(choice){
-  if (!user){ alert("Please login first to view your lists."); return; }
-  listBack.style.display="flex";
-  listTitle.textContent =
-    choice === "interested" ? "My Interested Spots" :
-    choice === "not_interested" ? "My Not Interested Spots" :
-    "My Skipped Spots";
-  listBody.textContent="Loading…";
+        const table = document.createElement('table');
+        table.className = 'table';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Spot</th>
+                    <th>Location</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        let i = 0;
 
-  // Listen for real-time updates to user's choices
-  const qChoices = query(
-    collection(db,"userChoices"),
-    where("userId","==", user.uid),
-    where("choice","==", choice),
-    orderBy("timestamp","desc")
-  );
+        spotDetails.forEach(spotDoc=>{
+            if(spotDoc.exists()){
+                const spot = spotDoc.data();
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${++i}</td>
+                    <td>${esc(spot.name)}</td>
+                    <td>${esc(spot.location)}</td>
+                    <td><button class="primary-btn list-link" data-spot-id="${spotDoc.id}" data-choice="${choice}">
+                        People who ${choice.replace('_', ' ')}
+                    </button></td>
+                `;
+                // Add listener to the link button
+                row.querySelector('.list-link').onclick = () => openPeopleList(spotDoc.id, choice);
+            }
+        });
 
-  onSnapshot(qChoices, async (snap)=>{
-    if (snap.empty){
-      listBody.innerHTML = `<p class="muted">Nothing here yet.</p>`;
-      return;
-    }
+        listBody.innerHTML="";
+        listBody.appendChild(table);
 
-    const spotIds = snap.docs.map(d => d.data().spotId);
-    if (spotIds.length === 0) {
-      listBody.innerHTML = `<p class="muted">Nothing here yet.</p>`;
-      return;
-    }
-
-    // Fetch spot details for the chosen spot IDs
-    const spotPromises = spotIds.map(id => getDoc(doc(db, "spots", id)));
-    const spotResults = await Promise.all(spotPromises);
-    const items = spotResults.filter(r => r.exists()).map(r => ({ id:r.id, ...r.data() }));
-
-    const wrap = document.createElement("div");
-    wrap.className="list-grid";
-    items.forEach(s=>{
-      const div=document.createElement("div");
-      div.className="list-item";
-      const img = esc(s.imageURL||s.image||"");
-      div.innerHTML = `
-        <img src="${img}" alt="${esc(s.name||'Spot')}" onerror="this.style.display='none'">
-        <div>
-          <div><strong>${esc(s.name||"Untitled")}</strong></div>
-          <div class="muted" style="font-size:12px">${esc(s.points||"")}</div>
-        </div>`;
-      wrap.appendChild(div);
+    }, (err)=>{
+        console.error("Error loading user list:", err);
+        listBody.innerHTML = `<p class="muted">Error loading list: ${err.message}</p>`;
     });
-    listBody.innerHTML="";
-    listBody.appendChild(wrap);
-  }, (err)=>{
-    console.error("Error loading user list:", err);
-    listBody.innerHTML = `<p class="muted">Error loading list: ${err.message}</p>`;
-  });
 }
 
-/* --------------- People for Current Spot Modal --------------- */
-function openPeopleForSpot(kind){
-  if (currentSpotIndex >= currentSpots.length) return;
-  const s = currentSpots[currentSpotIndex];
-  if (!s?.id) return;
 
-  peopleBack.style.display="flex";
-  peopleTitle.textContent =
-    kind === "interested" ? `People Interested in ${esc(s.name||"")}` :
-    kind === "not_interested" ? `People Not Interested in ${esc(s.name||"")}` :
-    `People who Skipped ${esc(s.name||"")}`;
-  peopleBody.textContent="Loading…";
+// Function to open the list of people interested in a specific spot
+function openPeopleList(spotId, choice){
+    if (!user){ showNotification('Login required to view this list.'); return; }
+    
+    peopleBack.style.display="flex";
+    peopleTitle.textContent = `People who ${choice.replace('_', ' ')}:`;
+    peopleBody.innerHTML = "Loading...";
 
-  // Listen for real-time updates to choices for this specific spot and choice type
-  const qPeople = query(
-    collection(db,"userChoices"),
-    where("spotId","==", s.id),
-    where("choice","==", kind),
-    orderBy("timestamp","desc")
-  );
+    // CRITICAL FIX: Unsubscribe from the previous listener before setting up a new one
+    if (peopleUnsub) peopleUnsub();
 
-  onSnapshot(qPeople, (snap)=>{
-    if (snap.empty){
-      peopleBody.innerHTML = `<p class="muted">No entries yet.</p>`;
-      return;
-    }
-    const list = document.createElement("div");
-    list.className="list-grid"; // Reusing list-grid for simple display
-    let i=0;
-    snap.forEach(doc=>{
-      const x=doc.data();
-      const row=document.createElement("div");
-      row.className="list-item"; // Reusing list-item for styling
-      row.style.display = 'block'; // Override flex for simple list
-      row.innerHTML = `
-        <div><strong>#${++i}</strong></div>
-        <div class="muted" style="font-size:13px">Email: ${esc(x.userEmail||"-")}</div>
-        <div class="muted" style="font-size:11px">UID: ${esc(x.userId||"-")}</div>`;
-      list.appendChild(row);
+    // Fetch spot name first for display title
+    getDoc(doc(db, 'spots', spotId)).then(spotDoc => {
+        if(spotDoc.exists()){
+            peopleTitle.textContent = `${choice.replace('_', ' ')} ${esc(spotDoc.data().name)}`;
+        }
     });
-    peopleBody.innerHTML="";
-    peopleBody.appendChild(list);
-  }, (err)=>{
-    console.error("Error loading people list:", err);
-    peopleBody.innerHTML = `<p class="muted">Error loading people: ${err.message}</p>`;
-  });
+
+    const choicesRef = collection(db, 'choices');
+    const qChoices = query(
+        choicesRef,
+        where('spotId', '==', spotId),
+        where('choice', '==', choice)
+    );
+
+    // Get a real-time list of users who made this choice on this spot
+    peopleUnsub = onSnapshot(qChoices, (snap)=>{ // Store the unsub function
+        if(snap.empty){
+            peopleBody.innerHTML = `<p class="empty">No one else has marked this spot as ${choice.replace('_',' ')}.</p>`;
+            return;
+        }
+
+        const list = document.createElement("div");
+        list.className = "people-list-container";
+        let i = 0;
+
+        snap.docs.forEach(d=>{
+            const x = d.data();
+            const row = document.createElement("div");
+            row.className="list-item"; // Reusing list-item for styling
+            row.style.display = 'block'; // Override flex for simple list
+            row.innerHTML = `
+                <div><strong>#${++i}</strong></div>
+                <div class="muted" style="font-size:13px">Email: ${esc(x.userEmail||\"-\")}</div>
+                <div class="muted" style="font-size:11px">UID: ${esc(x.userId||\"-\")}</div>`;
+            list.appendChild(row);
+        });
+        
+        peopleBody.innerHTML="";
+        peopleBody.appendChild(list);
+
+    }, (err)=>{
+        console.error("Error loading people list:", err);
+        peopleBody.innerHTML = `<p class="muted">Error loading people: ${err.message}</p>`;
+    });
 }
 
 /* --------------- Buttons & Keyboard Shortcuts --------------- */
@@ -410,3 +556,6 @@ window.addEventListener("keydown", (e)=>{
   if (e.key==="ArrowUp")    performAction("skipped", c);
   if (e.key==="ArrowDown")  performAction("review", c);
 });
+
+// Initial spot rendering once the script runs (though it will wait for auth)
+renderCurrentSpot();
