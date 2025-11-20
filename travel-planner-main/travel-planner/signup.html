@@ -11,9 +11,11 @@
     <h2>Sign up</h2>
     <form id="form" class="form">
       <label for="email">Email</label>
-      <input id="email" type="email" placeholder="Email" required><br>
+      <input id="email" type="email" placeholder="Email" required>
+      <!-- FIX: Removed unnecessary <br> -->
       <label for="pw">Password</label>
-      <input id="pw" type="password" placeholder="Password" required><br>
+      <input id="pw" type="password" placeholder="Password" required>
+      <!-- FIX: Removed unnecessary <br> -->
       <button class="primary-btn" type="submit">Create account</button>
     </form>
     <p class="muted" style="text-align:center; margin-top: 20px;">
@@ -36,7 +38,7 @@
         location.href='index.html';
       }catch(err){
         alert("Sign up failed: " + err.message);
-        console.error("Sign up error:", err);
+        console.error("Sign up failed:", err);
       }
     });
   </script>
