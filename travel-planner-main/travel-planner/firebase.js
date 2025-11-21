@@ -1,30 +1,62 @@
 // MultipleFiles/firebase.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword }
+import { 
+  getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, 
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+  signInAnonymously, signInWithCustomToken 
+}
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc,
-         query, where, orderBy, serverTimestamp, onSnapshot, writeBatch, FieldValue }
+import { 
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, updateDoc,
+  query, where, orderBy, serverTimestamp, onSnapshot, writeBatch, FieldValue 
+}
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-// === YOUR FIREBASE CONFIG ===
-const firebaseConfig = {
-  apiKey: "AIzaSyBU7SRrijoXJzNJdOhQLmSh_9mdoklxLPA",
-  authDomain: "travel-planner-bbd7b.firebaseapp.com",
-  projectId: "travel-planner-bbd7b",
-  storageBucket: "travel-planner-bbd7b.firebasestorage.app",
-  messagingSenderId: "901740451346",
-  appId: "1:901740451346:web:b0cb6372d6a7432e932acb"
-};
+// --- MANDATORY CANVAS ENVIRONMENT VARIABLES ---
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Use appId for constructing Firestore paths for multi-user data
+export const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db   = getFirestore(app);
-export const provider = new GoogleAuthProvider();
+if (!firebaseConfig) {
+  console.error("Firebase Config is missing. Cannot initialize Firebase.");
+}
 
-// Re-export all necessary Firebase functions for modular use
+// 1. Initialize App
+export const app = firebaseConfig ? initializeApp(firebaseConfig) : null;
+
+// 2. Initialize Services
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+export const provider = new GoogleAuthProvider(); // Exported for Google Sign-In
+
+// 3. Mandatory Custom Token Authentication Logic (Run once on load)
+async function authenticateUser() {
+  if (!auth) {
+    console.error("Firebase Auth not initialized.");
+    return;
+  }
+  try {
+    if (initialAuthToken) {
+      await signInWithCustomToken(auth, initialAuthToken);
+      console.log("Authenticated using custom token.");
+    } else {
+      await signInAnonymously(auth);
+      console.warn("No custom token found. Signed in anonymously.");
+    }
+  } catch (error) {
+    console.error("Authentication failed:", error);
+  }
+}
+
+if (app) {
+  authenticateUser();
+}
+
+// --- Re-Export all necessary Firebase functions ---
 export {
-  collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp, writeBatch, FieldValue,
-  onAuthStateChanged, signInWithPopup, signOut, onSnapshot, signInWithEmailAndPassword, createUserWithEmailAndPassword
+  GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, signInWithCustomToken,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, updateDoc,
+  query, where, orderBy, serverTimestamp, onSnapshot, writeBatch, FieldValue
 };
-
